@@ -1,3 +1,51 @@
 import { Routes } from '@angular/router';
+import { MainLayoutComponent } from './layout/main-layout/main-layout.component';
+import { authGuard } from './core/auth/guards/auth.guard';
 
-export const routes: Routes = [];
+export const routes: Routes = [
+  {
+    path: 'login',
+    loadComponent: () =>
+      import('./features/auth/components/login/login.component').then(m => m.LoginComponent),
+  },
+  {
+    path: 'register',
+    loadComponent: () =>
+      import('./features/auth/components/register/register.component').then(m => m.RegisterComponent),
+  },
+  {
+    path: 'stages/:id/print',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/stages/components/stage-print/stage-print.component').then(m => m.StagePrintComponent),
+  },
+  {
+    path: '',
+    component: MainLayoutComponent,
+    canActivate: [authGuard],
+    children: [
+      { path: '', redirectTo: '/rallies', pathMatch: 'full' },
+      {
+        path: 'rallies',
+        loadChildren: () => import('./features/rallies/rallies.routes')
+      },
+      {
+        path: 'stages',
+        loadChildren: () => import('./features/stages/stages.routes')
+      },
+      {
+        path: 'stage-editor',
+        loadChildren: () => import('./features/stage-editor/stage-editor.routes')
+      },
+      {
+        path: 'pace-notes',
+        loadChildren: () => import('./features/pace-notes/pace-notes.routes')
+      },
+      {
+        path: 'settings',
+        loadChildren: () => import('./features/settings/settings.routes')
+      }
+    ]
+  },
+  { path: '**', redirectTo: '/login' }
+];
