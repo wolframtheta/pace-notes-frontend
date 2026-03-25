@@ -32,6 +32,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private cKeyPressed = signal(false);
 
   curvePointClicked = output<{ lat: number; lng: number }>();
+  mapReady = output<void>();
 
   ngAfterViewInit(): void {
     setTimeout(() => {
@@ -49,6 +50,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       });
 
       this.setupKeyboardListeners();
+      this.mapReady.emit();
     }, 100);
   }
 

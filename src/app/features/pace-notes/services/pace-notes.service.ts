@@ -60,6 +60,7 @@ export class PaceNotesService {
       noteGapLeft: row.noteGapLeft ?? row.note_gap_left ?? undefined,
       noteGapRight: row.noteGapRight ?? row.note_gap_right ?? undefined,
       pageBreakAfter: !!(row.pageBreakAfter ?? row.page_break_after),
+      fasterCall: !!(row.fasterCall ?? row.faster_call),
       lat: Number(row.lat),
       lng: Number(row.lng),
       createdAt: new Date(row.createdAt ?? row.created_at),

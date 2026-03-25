@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed } from '@angular/core';
+import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MapComponent } from './components/map/map.component';
@@ -10,7 +10,9 @@ import { RouteAnalyzerService } from './services/route-analyzer.service';
 import { OsrmService } from './services/osrm.service';
 import { StageService } from '../stages/services/stage.service';
 import { PaceNotesService } from '../pace-notes/services/pace-notes.service';
-import { PaceNote } from '../../core/models/pace-note.model';
+import { NoteGroupService } from '../pace-notes/services/note-group.service';
+import { PaceNote, PaceNoteCreateInput } from '../../core/models/pace-note.model';
+import { Stage } from '../../core/models/stage.model';
 import { NotificationService } from '../../core/services/notification.service';
 import { LoadingService } from '../../core/services/loading.service';
 
@@ -43,7 +45,10 @@ import { LoadingService } from '../../core/services/loading.service';
           </div>
           
           <div class="relative h-full">
-            <app-map (curvePointClicked)="onCurvePointClicked($event)" />
+            <app-map
+              (curvePointClicked)="onCurvePointClicked($event)"
+              (mapReady)="onMapReady()"
+            />
             
             <!-- Indicador de mode tecla C -->
             @if (mapService.currentMode() === 'addCurveNote') {
@@ -133,23 +138,103 @@ import { LoadingService } from '../../core/services/loading.service';
     </div>
   `
 })
-export class StageEditorComponent {
+export class StageEditorComponent implements OnInit {
   mapService = inject(MapService);
   private osrmService = inject(OsrmService);
   private routeAnalyzer = inject(RouteAnalyzerService);
   private stageService = inject(StageService);
   private paceNotesService = inject(PaceNotesService);
+  private noteGroupService = inject(NoteGroupService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private notification = inject(NotificationService);
   private loading = inject(LoadingService);
-  
+
   paceNotes = signal<PaceNote[]>([]);
   totalDistance = signal<number | null>(null);
   stageName = '';
   currentRouteGeometry: any = null;
-  
+
+  private mapInitialized = false;
+  private pendingHydrateStage: Stage | null = null;
+
   waypointCount = computed(() => this.mapService.waypoints().length);
+
+  async ngOnInit(): Promise<void> {
+    const stageId = this.route.snapshot.queryParamMap.get('stageId');
+    const rallyId = this.route.snapshot.queryParamMap.get('rallyId');
+    if (!stageId || !rallyId) return;
+
+    try {
+      await this.loading.wrap((async () => {
+        const stage = await this.stageService.getStageById(stageId);
+        if (!stage) {
+          this.notification.error('Tram no trobat', 'No s\'ha pogut carregar el tram');
+          return;
+        }
+        if (stage.rallyId !== rallyId) {
+          this.notification.warn('Rally incorrecte', 'Els paràmetres de l\'URL no coincideixen');
+          return;
+        }
+
+        await this.paceNotesService.loadNotesByStage(stageId);
+        const notes = [...this.paceNotesService.notes()].sort((a, b) => a.position - b.position);
+        this.paceNotes.set(notes);
+
+        this.stageName = stage.name;
+        this.totalDistance.set(stage.totalDistance ?? null);
+        this.currentRouteGeometry = stage.routeGeometry ?? null;
+
+        this.pendingHydrateStage = stage;
+        this.tryHydrateFromPendingStage();
+      })());
+    } catch (e) {
+      console.error(e);
+      this.notification.error('Error', 'No s\'ha pogut carregar el tram per editar');
+    }
+  }
+
+  onMapReady(): void {
+    this.mapInitialized = true;
+    this.tryHydrateFromPendingStage();
+  }
+
+  private tryHydrateFromPendingStage(): void {
+    if (!this.mapInitialized || !this.pendingHydrateStage) return;
+
+    const stage = this.pendingHydrateStage;
+    this.pendingHydrateStage = null;
+
+    if (stage.waypoints?.length) {
+      for (const wp of stage.waypoints) {
+        this.mapService.addWaypoint(wp.lat, wp.lng);
+      }
+    }
+
+    if (stage.routeGeometry?.coordinates?.length) {
+      const coords = stage.routeGeometry.coordinates.map(
+        (c: number[]) => [c[1], c[0]] as [number, number],
+      );
+      this.mapService.drawRoute(coords);
+    } else if (this.mapService.waypoints().length >= 2) {
+      void this.refreshRouteFromOsrm();
+    }
+
+    if (this.paceNotes().length > 0) {
+      this.mapService.addNoteMarkers(this.paceNotes());
+    }
+  }
+
+  private async refreshRouteFromOsrm(): Promise<void> {
+    const wps = this.mapService.waypoints();
+    if (wps.length < 2) return;
+    try {
+      const route = await this.osrmService.getRoute(wps);
+      if (route) this.mapService.drawRoute(route);
+    } catch (e) {
+      console.error('Error recalculant ruta:', e);
+    }
+  }
 
   onCurvePointClicked(event: { lat: number; lng: number }): void {
     const routeCoords = this.mapService.routeCoordinates();
@@ -242,28 +327,62 @@ export class StageEditorComponent {
     }
   }
 
+  private noteToCreateInput(stageId: string, note: PaceNote): PaceNoteCreateInput {
+    return {
+      stageId,
+      position: note.position,
+      type: note.type,
+      direction: note.direction,
+      angle: note.angle,
+      distance: note.distance,
+      noteLabel: note.noteLabel,
+      customText: note.customText,
+      noteBefore: note.noteBefore,
+      noteAfter: note.noteAfter,
+      noteBeforeSize: note.noteBeforeSize,
+      noteAfterSize: note.noteAfterSize,
+      notePosition: note.notePosition,
+      noteGapLeft: note.noteGapLeft,
+      noteGapRight: note.noteGapRight,
+      pageBreakAfter: note.pageBreakAfter,
+      fasterCall: note.fasterCall,
+      lat: note.lat,
+      lng: note.lng,
+    };
+  }
+
   private async _saveStageFully(rallyId: string): Promise<void> {
+    const editStageId = this.route.snapshot.queryParamMap.get('stageId');
+    const waypoints = this.mapService.waypoints();
+
+    if (editStageId) {
+      await this.noteGroupService.loadByStage(editStageId);
+      await Promise.all(this.noteGroupService.groups().map(g => this.noteGroupService.delete(g.id)));
+      await this.paceNotesService.deleteNotesByStage(editStageId);
+      await this.stageService.updateStage({
+        id: editStageId,
+        name: this.stageName,
+        totalDistance: this.totalDistance() ?? undefined,
+        routeGeometry: this.currentRouteGeometry,
+        waypoints,
+      });
+      const payloads = this.paceNotes().map(n => this.noteToCreateInput(editStageId, n));
+      await this.paceNotesService.bulkCreateNotes(payloads);
+      this.notification.success('Tram actualitzat', `"${this.stageName}" actualitzat correctament`);
+      this.router.navigate(['/stages', editStageId]);
+      return;
+    }
+
     const stage = await this.stageService.createStage({
       rallyId,
       name: this.stageName,
       totalDistance: this.totalDistance() ?? undefined,
       routeGeometry: this.currentRouteGeometry,
-      waypoints: this.mapService.waypoints()
+      waypoints,
     });
 
     for (const note of this.paceNotes()) {
-      await this.paceNotesService.createNote({
-        stageId: stage.id,
-        position: note.position,
-        type: note.type,
-        direction: note.direction,
-        angle: note.angle,
-        distance: note.distance,
-        noteLabel: note.noteLabel,
-        customText: note.customText,
-        lat: note.lat,
-        lng: note.lng
-      });
+      await this.paceNotesService.createNote(this.noteToCreateInput(stage.id, note));
     }
 
     this.notification.success('Tram guardat', `"${this.stageName}" guardat correctament`);

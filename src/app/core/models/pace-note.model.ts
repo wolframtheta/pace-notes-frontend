@@ -21,6 +21,8 @@ export interface PaceNote {
   noteGapRight?: number;
   /** Impressió: salt de pàgina després d’aquesta nota */
   pageBreakAfter?: boolean;
+  /** Dir la nota més ràpid (ralla vertical vermella a la impressió) */
+  fasterCall?: boolean;
   lat: number;
   lng: number;
   createdAt: Date;
@@ -44,6 +46,7 @@ export interface PaceNoteCreateInput {
   noteGapLeft?: number;
   noteGapRight?: number;
   pageBreakAfter?: boolean;
+  fasterCall?: boolean;
   lat: number;
   lng: number;
 }
@@ -66,6 +69,7 @@ export interface PaceNoteUpdateInput {
   noteGapLeft?: number;
   noteGapRight?: number;
   pageBreakAfter?: boolean;
+  fasterCall?: boolean;
   lat?: number;
   lng?: number;
 }

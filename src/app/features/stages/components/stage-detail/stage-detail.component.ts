@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy, inject, computed, signal } from '@angular
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { HttpErrorResponse } from '@angular/common/http';
 import { StageService } from '../../services/stage.service';
 import { PaceNotesService } from '../../../pace-notes/services/pace-notes.service';
 import { NoteGroupService } from '../../../pace-notes/services/note-group.service';
@@ -106,17 +107,62 @@ import { NoteGroup } from '../../../../core/models/note-group.model';
                     [class]="selectionAction() === 'mixed-groups' ? 'text-gray-400' : 'text-red-600'"
                   >{{ selectedNoteIds().size }} seleccionades</span>
 
+                  <button
+                    type="button"
+                    (click)="toggleFasterCallOnSelection()"
+                    [disabled]="notesToolbarBusy()"
+                    class="inline-flex items-center justify-center gap-2 min-w-[8.5rem] px-3 py-1.5 rounded text-sm bg-amber-600 hover:bg-amber-700 disabled:opacity-60 disabled:pointer-events-none text-white transition"
+                    [title]="fasterCallToggleTitle()"
+                  >
+                    @if (fasterCallBusy()) {
+                      <span class="btn-spinner" aria-hidden="true"></span>
+                      <span>Guardant…</span>
+                    } @else {
+                      Més velocitat
+                    }
+                  </button>
+
                   @if (selectionAction() === 'create') {
-                    <button (click)="applySelection()" class="px-3 py-1.5 rounded text-sm bg-red-600 hover:bg-red-700 text-white transition">
-                      Crear superset
+                    <button
+                      type="button"
+                      (click)="applySelection()"
+                      [disabled]="notesToolbarBusy()"
+                      class="inline-flex items-center justify-center gap-2 min-w-[9.5rem] px-3 py-1.5 rounded text-sm bg-red-600 hover:bg-red-700 disabled:opacity-60 disabled:pointer-events-none text-white transition"
+                    >
+                      @if (groupSelectionBusy()) {
+                        <span class="btn-spinner" aria-hidden="true"></span>
+                        <span>Guardant…</span>
+                      } @else {
+                        Agrupar corbes
+                      }
                     </button>
                   } @else if (selectionAction() === 'add-to-group') {
-                    <button (click)="applySelection()" class="px-3 py-1.5 rounded text-sm bg-red-600 hover:bg-red-700 text-white transition">
-                      Afegir al superset
+                    <button
+                      type="button"
+                      (click)="applySelection()"
+                      [disabled]="notesToolbarBusy()"
+                      class="inline-flex items-center justify-center gap-2 min-w-[10.5rem] px-3 py-1.5 rounded text-sm bg-red-600 hover:bg-red-700 disabled:opacity-60 disabled:pointer-events-none text-white transition"
+                    >
+                      @if (groupSelectionBusy()) {
+                        <span class="btn-spinner" aria-hidden="true"></span>
+                        <span>Guardant…</span>
+                      } @else {
+                        Afegir a l’agrupació
+                      }
                     </button>
                   } @else if (selectionAction() === 'remove-from-group') {
-                    <button (click)="applySelection()" class="px-3 py-1.5 rounded text-sm bg-gray-600 hover:bg-gray-700 text-white transition">
-                      Treure del superset
+                    <button
+                      type="button"
+                      (click)="applySelection()"
+                      [disabled]="notesToolbarBusy()"
+                      class="inline-flex items-center justify-center gap-2 min-w-[11rem] px-3 py-1.5 rounded text-sm bg-gray-600 hover:bg-gray-700 disabled:opacity-60 disabled:pointer-events-none text-white transition"
+                    >
+                      @if (groupSelectionBusy()) {
+                        <span class="btn-spinner" aria-hidden="true"></span>
+                        <span>Guardant…</span>
+                      } @else {
+                        Treure de l’agrupació
+                      }
                     </button>
                   } @else if (selectionAction() === 'mixed-groups') {
                     <span class="text-xs text-gray-400 italic">Notes de grups diferents</span>
@@ -125,8 +171,10 @@ import { NoteGroup } from '../../../../core/models/note-group.model';
                   }
 
                   <button
+                    type="button"
                     (click)="clearSelection()"
-                    class="px-2 py-1.5 rounded text-sm bg-gray-200 hover:bg-gray-300 text-gray-600 transition"
+                    [disabled]="notesToolbarBusy()"
+                    class="px-2 py-1.5 rounded text-sm bg-gray-200 hover:bg-gray-300 disabled:opacity-50 disabled:pointer-events-none text-gray-600 transition"
                   >
                     ✕
                   </button>
@@ -163,8 +211,14 @@ import { NoteGroup } from '../../../../core/models/note-group.model';
                       />
                     </td>
                     <td class="p-2 flex items-center gap-1.5">
+                      @if (note.fasterCall) {
+                        <span
+                          class="inline-block w-1 self-stretch min-h-[1.25rem] bg-red-600 shrink-0 rounded-sm"
+                          title="Més velocitat"
+                        ></span>
+                      }
                       @if (note.groupId) {
-                        <span class="inline-block w-1 self-stretch rounded-full bg-red-500 shrink-0"></span>
+                        <span class="inline-block w-1 self-stretch rounded-full bg-red-500 shrink-0" title="Agrupació"></span>
                       }
                       {{ note.type === 'curve' ? 'Corba' : 'Recta' }}
                     </td>
@@ -181,7 +235,7 @@ import { NoteGroup } from '../../../../core/models/note-group.model';
                         <button
                           (click)="$event.stopPropagation(); removeFromGroup(note)"
                           class="text-sm text-red-300 hover:text-red-600 transition-colors font-bold leading-none"
-                          title="Treure del superset"
+                          title="Treure de l’agrupació"
                         >×</button>
                       }
                     </td>
@@ -194,7 +248,7 @@ import { NoteGroup } from '../../../../core/models/note-group.model';
               <div class="mt-3 flex flex-wrap gap-2">
                 @for (group of noteGroupService.groups(); track group.id) {
                   <span class="inline-flex items-center gap-1 text-xs border border-red-400 text-red-600 rounded px-2 py-0.5">
-                    Superset ({{ notesForGroup(group.id).length }})
+                    Agrupació ({{ notesForGroup(group.id).length }})
                     <button (click)="deleteGroup(group)" class="hover:text-red-800 font-bold">×</button>
                   </span>
                 }
@@ -217,6 +271,17 @@ import { NoteGroup } from '../../../../core/models/note-group.model';
     #stage-detail-map {
       width: 100%;
     }
+    .btn-spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255,255,255,0.35);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: stage-detail-spin 0.7s linear infinite;
+    }
+    @keyframes stage-detail-spin {
+      to { transform: rotate(360deg); }
+    }
   `]
 })
 export class StageDetailComponent implements OnInit, OnDestroy {
@@ -233,6 +298,11 @@ export class StageDetailComponent implements OnInit, OnDestroy {
   private mapInitialized = false;
 
   selectedNoteIds = signal<Set<string>>(new Set());
+
+  fasterCallBusy = signal(false);
+  groupSelectionBusy = signal(false);
+  /** Bloqueja la barra d’eines mentre corre una petició (evita solapaments). */
+  notesToolbarBusy = computed(() => this.fasterCallBusy() || this.groupSelectionBusy());
 
   ungroupedNotes = computed(() =>
     this.paceNotesService.notes().filter(n => !n.groupId)
@@ -272,6 +342,37 @@ export class StageDetailComponent implements OnInit, OnDestroy {
 
   notesForGroup(groupId: string): PaceNote[] {
     return this.paceNotesService.notes().filter(n => n.groupId === groupId);
+  }
+
+  /** Tooltip del botó «Més velocitat»: toggle segons si totes les seleccionades ja tenen la marca. */
+  fasterCallToggleTitle = computed(() => {
+    const ids = this.selectedNoteIds();
+    if (ids.size === 0) return '';
+    const selected = this.paceNotesService.notes().filter(n => ids.has(n.id));
+    if (selected.length === 0) return '';
+    const allOn = selected.every(n => !!n.fasterCall);
+    return allOn ? 'Treure marca «més velocitat»' : 'Marcar «més velocitat» (dir més ràpid)';
+  });
+
+  async toggleFasterCallOnSelection(): Promise<void> {
+    const selectedIds = this.selectedNoteIds();
+    if (selectedIds.size === 0 || this.notesToolbarBusy()) return;
+    const selected = this.paceNotesService.notes().filter(n => selectedIds.has(n.id));
+    const allOn = selected.length > 0 && selected.every(n => !!n.fasterCall);
+    const next = !allOn;
+    this.fasterCallBusy.set(true);
+    try {
+      await Promise.all(
+        [...selectedIds].map(id => this.paceNotesService.updateNote({ id, fasterCall: next })),
+      );
+      this.paceNotesService.notes.update(list =>
+        list.map(n => (selectedIds.has(n.id) ? { ...n, fasterCall: next } : n)),
+      );
+    } catch (e: unknown) {
+      this.notification.error('No s’ha pogut guardar', this.httpErrorDetail(e));
+    } finally {
+      this.fasterCallBusy.set(false);
+    }
   }
 
   async ngOnInit() {
@@ -333,37 +434,65 @@ export class StageDetailComponent implements OnInit, OnDestroy {
     const action = this.selectionAction();
     const selectedIds = this.selectedNoteIds();
     if (action === 'none' || action === 'mixed-groups' || action === 'not-consecutive') return;
+    if (this.notesToolbarBusy()) return;
 
-    if (action === 'create') {
-      const stageId = this.route.snapshot.paramMap.get('id');
-      if (!stageId) return;
-      const nextPosition = this.noteGroupService.groups().length;
-      const group = await this.noteGroupService.create({ stageId, name: `superset-${nextPosition + 1}`, position: nextPosition });
-      await Promise.all([...selectedIds].map(id => this.paceNotesService.updateNote({ id, groupId: group.id })));
-      this.paceNotesService.notes.update(notes =>
-        notes.map(n => selectedIds.has(n.id) ? { ...n, groupId: group.id } : n)
-      );
-    } else if (action === 'add-to-group') {
-      const groupId = this.selectionGroupId()!;
-      const ungroupedSelected = this.paceNotesService.notes()
-        .filter(n => selectedIds.has(n.id) && !n.groupId);
-      await Promise.all(ungroupedSelected.map(n => this.paceNotesService.updateNote({ id: n.id, groupId })));
-      this.paceNotesService.notes.update(notes =>
-        notes.map(n => ungroupedSelected.some(u => u.id === n.id) ? { ...n, groupId } : n)
-      );
-    } else if (action === 'remove-from-group') {
-      const groupId = this.selectionGroupId();
-      await Promise.all([...selectedIds].map(id => this.paceNotesService.updateNote({ id, groupId: null })));
-      this.paceNotesService.notes.update(notes =>
-        notes.map(n => selectedIds.has(n.id) ? { ...n, groupId: null } : n)
-      );
-      // Cleanup empty group
-      if (groupId && this.notesForGroup(groupId).length === 0) {
-        await this.noteGroupService.delete(groupId);
+    this.groupSelectionBusy.set(true);
+    try {
+      if (action === 'create') {
+        const stageId = this.route.snapshot.paramMap.get('id');
+        if (!stageId) return;
+        const nextPosition = this.noteGroupService.groups().length;
+        const group = await this.noteGroupService.create({
+          stageId,
+          name: `superset-${nextPosition + 1}`,
+          position: nextPosition,
+        });
+        await Promise.all([...selectedIds].map(id => this.paceNotesService.updateNote({ id, groupId: group.id })));
+        this.paceNotesService.notes.update(notes =>
+          notes.map(n => (selectedIds.has(n.id) ? { ...n, groupId: group.id } : n)),
+        );
+        await this.noteGroupService.loadByStage(stageId);
+      } else if (action === 'add-to-group') {
+        const groupId = this.selectionGroupId()!;
+        const ungroupedSelected = this.paceNotesService
+          .notes()
+          .filter(n => selectedIds.has(n.id) && !n.groupId);
+        await Promise.all(ungroupedSelected.map(n => this.paceNotesService.updateNote({ id: n.id, groupId })));
+        this.paceNotesService.notes.update(notes =>
+          notes.map(n => (ungroupedSelected.some(u => u.id === n.id) ? { ...n, groupId } : n)),
+        );
+      } else if (action === 'remove-from-group') {
+        const groupId = this.selectionGroupId();
+        await Promise.all([...selectedIds].map(id => this.paceNotesService.updateNote({ id, groupId: null })));
+        this.paceNotesService.notes.update(notes =>
+          notes.map(n => (selectedIds.has(n.id) ? { ...n, groupId: null } : n)),
+        );
+        if (groupId && this.notesForGroup(groupId).length === 0) {
+          await this.noteGroupService.delete(groupId);
+          const stageId = this.route.snapshot.paramMap.get('id');
+          if (stageId) await this.noteGroupService.loadByStage(stageId);
+        }
       }
-    }
 
-    this.selectedNoteIds.set(new Set());
+      this.selectedNoteIds.set(new Set());
+    } catch (e: unknown) {
+      this.notification.error('No s’ha pogut guardar l’agrupació', this.httpErrorDetail(e));
+    } finally {
+      this.groupSelectionBusy.set(false);
+    }
+  }
+
+  private httpErrorDetail(e: unknown): string {
+    if (e instanceof HttpErrorResponse) {
+      const body = e.error;
+      if (body && typeof body === 'object' && 'message' in body) {
+        const m = (body as { message: string | string[] }).message;
+        return Array.isArray(m) ? m.join(', ') : String(m);
+      }
+      return e.status ? `${e.status} ${e.statusText || ''}`.trim() : e.message || 'Petició fallida';
+    }
+    if (e instanceof Error) return e.message;
+    return String(e);
   }
 
   async removeFromGroup(note: PaceNote): Promise<void> {
@@ -400,6 +529,10 @@ export class StageDetailComponent implements OnInit, OnDestroy {
   }
 
   editStage(): void {
-    this.notification.info('En desenvolupament', 'Funcionalitat d\'edició en desenvolupament');
+    const s = this.stage();
+    if (!s) return;
+    this.router.navigate(['/stage-editor'], {
+      queryParams: { rallyId: s.rallyId, stageId: s.id },
+    });
   }
 }

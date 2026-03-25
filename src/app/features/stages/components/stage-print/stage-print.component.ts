@@ -54,7 +54,7 @@ const MAX_GAP = 80;
             <div class="page-header">
               <span class="page-rally">{{ rally()?.name }}</span>
               <span class="page-stage">{{ stage()!.name }}</span>
-              <span class="page-info">{{ currentDate | date:'dd/MM/yyyy' }} · Pàgina {{ page.pageIndex + 1 }}/{{ pages().length }}</span>
+              <span class="page-number">{{ page.pageIndex + 1 }}/{{ pages().length }}</span>
             </div>
 
             @if (page.breakNoteId) {
@@ -64,7 +64,7 @@ const MAX_GAP = 80;
             }
 
             @for (segment of page.segments; track $index) {
-              <div [class]="segment.isSuperset ? 'superset-block' : 'segment-normal'">
+              <div [class]="segmentWrapperClass(segment)">
                 @for (note of segment.notes; track note.id; let last = $last) {
                   <div class="note-block">
                     <div class="note-toolbar">
@@ -211,6 +211,7 @@ const MAX_GAP = 80;
       width: 210mm;
       min-height: 297mm;
       margin: 0 auto 24px;
+      padding-top: 12mm;
       padding-right: 16mm;
       padding-bottom: 14mm;
       padding-left: 16mm;
@@ -224,15 +225,24 @@ const MAX_GAP = 80;
     .page-header {
       display: flex;
       justify-content: space-between;
-      align-items: baseline;
+      align-items: center;
       border-bottom: 2px solid #0f172a;
       padding-bottom: 6px;
       margin-bottom: 8px;
       flex-shrink: 0;
     }
-    .page-rally { font-size: 14px; font-weight: 600; color: #475569; flex: 1; }
-    .page-stage { font-size: 16px; font-weight: 700; color: #0f172a; flex: 1; text-align: center; }
-    .page-info { font-size: 11px; color: #64748b; flex: 1; text-align: right; }
+    .page-rally { font-size: 14px; font-weight: 600; color: #475569; flex: 1; min-width: 0; }
+    .page-stage { font-size: 16px; font-weight: 700; color: #0f172a; flex: 1; text-align: center; min-width: 0; }
+    .page-number {
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 28px;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.02em;
+      line-height: 1;
+      flex: 0 0 auto;
+      text-align: right;
+    }
 
     /* ── Break banner: shown at top of pages caused by a manual break ── */
     .break-banner {
@@ -308,18 +318,41 @@ const MAX_GAP = 80;
 
     /* ── Superset: rectangle vermell que engloba el grup ── */
     .superset-block {
-      border: 3px solid #dc2626;
-      border-radius: 4px;
+      position: relative;
+      border: 6px solid #dc2626;
+      border-radius: 6px;
       margin: 4px 0;
       display: flex;
       flex-direction: column;
       flex-shrink: 0;
     }
-    .superset-block .note-block:last-child {
-      border-bottom: none;
+    /*
+     * «Més velocitat»: segona línia vermella a fora del rectangle (esquerra),
+     * amb buit respecte la vora exterior del marc.
+     */
+    .superset-block--faster {
+      overflow: visible;
+      margin-left: 32px;
+    }
+    .superset-block--faster::before {
+      content: '';
+      position: absolute;
+      /* 6px vora + ~14px buit + 8px ralla (des de la vora interior del contingut) */
+      left: -28px;
+      top: 6px;
+      bottom: 6px;
+      width: 8px;
+      background: #dc2626;
+      border-radius: 3px;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      pointer-events: none;
     }
     .superset-block .note-block {
       flex: 1;
+    }
+    .superset-block .note-block:last-child {
+      border-bottom: none;
     }
 
     /* ── Note block ── */
@@ -429,6 +462,7 @@ const MAX_GAP = 80;
       .page {
         box-shadow: none; margin: 0; width: 100%;
         height: 297mm; min-height: unset;
+        padding-top: 16mm;
         page-break-after: always; break-after: page;
       }
       .page:last-child { page-break-after: avoid; break-after: avoid; }
@@ -436,6 +470,8 @@ const MAX_GAP = 80;
       .col--left::before, .col--right::before { display: none !important; }
       .col--left:empty  { border-right-color: transparent; }
       .col--right:empty { border-left-color:  transparent; }
+
+      .page-number { font-size: 32px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     }
   `]
 })
@@ -462,6 +498,13 @@ export class StagePrintComponent implements OnInit, OnDestroy {
     const pos = note.notePosition ?? DEFAULT_POSITION;
     const right = 100 - pos;
     return `${pos}fr auto ${right}fr`;
+  }
+
+  /** Classes del wrapper del segmente: agrupació + línia interior si alguna nota és «més velocitat». */
+  segmentWrapperClass(segment: NoteSegment): string {
+    if (!segment.isSuperset) return 'segment-normal';
+    const anyFaster = segment.notes.some(n => n.fasterCall);
+    return anyFaster ? 'superset-block superset-block--faster' : 'superset-block';
   }
 
   /** True if this note is not the last in stage order (divider / break after it can matter). */
