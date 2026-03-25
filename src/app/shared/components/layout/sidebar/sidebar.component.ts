@@ -19,15 +19,6 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
         </li>
         <li>
           <a 
-            routerLink="/pace-notes" 
-            routerLinkActive="bg-blue-600"
-            class="block px-4 py-2 rounded hover:bg-gray-700 transition"
-          >
-            Notes de Pilot
-          </a>
-        </li>
-        <li>
-          <a 
             routerLink="/settings" 
             routerLinkActive="bg-blue-600"
             class="block px-4 py-2 rounded hover:bg-gray-700 transition"

@@ -38,10 +38,6 @@ export const routes: Routes = [
         loadChildren: () => import('./features/stage-editor/stage-editor.routes')
       },
       {
-        path: 'pace-notes',
-        loadChildren: () => import('./features/pace-notes/pace-notes.routes')
-      },
-      {
         path: 'settings',
         loadChildren: () => import('./features/settings/settings.routes')
       }

@@ -4,11 +4,22 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { StageService } from '../../services/stage.service';
 import { PaceNotesService } from '../../../pace-notes/services/pace-notes.service';
+import { NoteGroupService } from '../../../pace-notes/services/note-group.service';
 import { RallyService } from '../../../rallies/services/rally.service';
 import { PaceNote } from '../../../../core/models/pace-note.model';
+import { NoteGroup } from '../../../../core/models/note-group.model';
 import { Rally } from '../../../../core/models/rally.model';
+interface NoteSegment {
+  notes: PaceNote[];
+  isSuperset: boolean;
+}
 
-const NOTES_PER_PAGE = 5;
+interface PrintPage {
+  segments: NoteSegment[];
+  pageIndex: number;
+  breakNoteId: string | null;
+}
+
 const DEFAULT_SIZE = 96;
 const MIN_SIZE = 20;
 const MAX_SIZE = 200;
@@ -38,98 +49,118 @@ const MAX_GAP = 80;
           </div>
         </div>
 
-        @for (page of pages(); track $index) {
+        @for (page of pages(); track page.pageIndex) {
           <div class="page">
             <div class="page-header">
               <span class="page-rally">{{ rally()?.name }}</span>
               <span class="page-stage">{{ stage()!.name }}</span>
-              <span class="page-info">{{ currentDate | date:'dd/MM/yyyy' }} · Pàgina {{ $index + 1 }}/{{ pages().length }}</span>
+              <span class="page-info">{{ currentDate | date:'dd/MM/yyyy' }} · Pàgina {{ page.pageIndex + 1 }}/{{ pages().length }}</span>
             </div>
 
-            @for (note of page; track note.id) {
-              <div class="note-block">
+            @if (page.breakNoteId) {
+              <div class="break-banner" (click)="toggleBreak(page.breakNoteId)" title="Clic per eliminar el salt">
+                <span>✂ salt de pàgina — clic per eliminar</span>
+              </div>
+            }
 
-                <!-- Toolbar per nota (screen only) -->
-                <div class="note-toolbar">
-                  <div class="size-group">
-                    <span class="size-label">Esq</span>
-                    <button class="sz-btn" (click)="changeSize(note, 'noteBeforeSize', -SIZE_STEP)">−</button>
-                    <span class="sz-val">{{ note.noteBeforeSize ?? DEFAULT_SIZE }}</span>
-                    <button class="sz-btn" (click)="changeSize(note, 'noteBeforeSize', +SIZE_STEP)">+</button>
-                  </div>
-                  <div class="size-group">
-                    <span class="size-label">Dre</span>
-                    <button class="sz-btn" (click)="changeSize(note, 'noteAfterSize', -SIZE_STEP)">−</button>
-                    <span class="sz-val">{{ note.noteAfterSize ?? DEFAULT_SIZE }}</span>
-                    <button class="sz-btn" (click)="changeSize(note, 'noteAfterSize', +SIZE_STEP)">+</button>
-                  </div>
-                  <div class="size-group size-group--pos">
-                    <span class="size-label">Pos</span>
-                    <input
-                      type="range" min="0" max="100" step="1"
-                      [ngModel]="note.notePosition ?? DEFAULT_POSITION"
-                      (ngModelChange)="changePosition(note, $event)"
-                      class="pos-slider"
-                    />
-                    <span class="sz-val">{{ note.notePosition ?? DEFAULT_POSITION }}%</span>
-                  </div>
-                  <div class="size-group size-group--pos">
-                    <span class="size-label">ME</span>
-                    <input
-                      type="range" [min]="0" [max]="80" step="2"
-                      [ngModel]="note.noteGapLeft ?? DEFAULT_GAP"
-                      (ngModelChange)="changeGap(note, 'noteGapLeft', $event)"
-                      class="pos-slider"
-                    />
-                    <span class="sz-val">{{ note.noteGapLeft ?? DEFAULT_GAP }}px</span>
-                  </div>
-                  <div class="size-group size-group--pos">
-                    <span class="size-label">MD</span>
-                    <input
-                      type="range" [min]="0" [max]="80" step="2"
-                      [ngModel]="note.noteGapRight ?? DEFAULT_GAP"
-                      (ngModelChange)="changeGap(note, 'noteGapRight', $event)"
-                      class="pos-slider"
-                    />
-                    <span class="sz-val">{{ note.noteGapRight ?? DEFAULT_GAP }}px</span>
-                  </div>
-                </div>
+            @for (segment of page.segments; track $index) {
+              <div [class]="segment.isSuperset ? 'superset-block' : 'segment-normal'">
+                @for (note of segment.notes; track note.id; let last = $last) {
+                  <div class="note-block">
+                    <div class="note-toolbar">
+                      <div class="size-group">
+                        <span class="size-label">Esq</span>
+                        <button class="sz-btn" (click)="changeSize(note, 'noteBeforeSize', -SIZE_STEP)">−</button>
+                        <span class="sz-val">{{ note.noteBeforeSize ?? DEFAULT_SIZE }}</span>
+                        <button class="sz-btn" (click)="changeSize(note, 'noteBeforeSize', +SIZE_STEP)">+</button>
+                      </div>
+                      <div class="size-group">
+                        <span class="size-label">Dre</span>
+                        <button class="sz-btn" (click)="changeSize(note, 'noteAfterSize', -SIZE_STEP)">−</button>
+                        <span class="sz-val">{{ note.noteAfterSize ?? DEFAULT_SIZE }}</span>
+                        <button class="sz-btn" (click)="changeSize(note, 'noteAfterSize', +SIZE_STEP)">+</button>
+                      </div>
+                      <div class="size-group size-group--pos">
+                        <span class="size-label">Pos</span>
+                        <input
+                          type="range" min="0" max="100" step="1"
+                          [ngModel]="note.notePosition ?? DEFAULT_POSITION"
+                          (ngModelChange)="changePosition(note, $event)"
+                          class="pos-slider"
+                        />
+                        <span class="sz-val">{{ note.notePosition ?? DEFAULT_POSITION }}%</span>
+                      </div>
+                      <div class="size-group size-group--pos">
+                        <span class="size-label">ME</span>
+                        <input
+                          type="range" [min]="0" [max]="80" step="2"
+                          [ngModel]="note.noteGapLeft ?? DEFAULT_GAP"
+                          (ngModelChange)="changeGap(note, 'noteGapLeft', $event)"
+                          class="pos-slider"
+                        />
+                        <span class="sz-val">{{ note.noteGapLeft ?? DEFAULT_GAP }}px</span>
+                      </div>
+                      <div class="size-group size-group--pos">
+                        <span class="size-label">MD</span>
+                        <input
+                          type="range" [min]="0" [max]="80" step="2"
+                          [ngModel]="note.noteGapRight ?? DEFAULT_GAP"
+                          (ngModelChange)="changeGap(note, 'noteGapRight', $event)"
+                          class="pos-slider"
+                        />
+                        <span class="sz-val">{{ note.noteGapRight ?? DEFAULT_GAP }}px</span>
+                      </div>
+                    </div>
 
-                <div class="note-row" [style.gridTemplateColumns]="noteGridCols(note)">
-                  <div
-                    class="col col--left"
-                    contenteditable="true"
-                    (blur)="saveFieldDiv(note, 'noteBefore', $event)"
-                    [textContent]="note.noteBefore || ''"
-                    data-placeholder="esq."
-                    [style.fontSize.px]="note.noteBeforeSize ?? DEFAULT_SIZE"
-                  ></div>
+                    <div class="note-row" [style.gridTemplateColumns]="noteGridCols(note)">
+                      <div
+                        class="col col--left"
+                        contenteditable="true"
+                        (blur)="saveFieldDiv(note, 'noteBefore', $event)"
+                        [textContent]="note.noteBefore || ''"
+                        data-placeholder="esq."
+                        [style.fontSize.px]="note.noteBeforeSize ?? DEFAULT_SIZE"
+                      ></div>
 
-                  <div class="col col--center"
-                    [style.paddingLeft.px]="note.noteGapLeft ?? DEFAULT_GAP"
-                    [style.paddingRight.px]="note.noteGapRight ?? DEFAULT_GAP"
-                  >
-                    @if (note.type === 'curve') {
-                      <span class="note-label">{{ note.noteLabel || '—' }}</span>
-                    } @else {
-                      <span class="note-label">{{ categorizeStraight(note.distance) }}</span>
-                    }
+                      <div class="col col--center"
+                        [style.paddingLeft.px]="note.noteGapLeft ?? DEFAULT_GAP"
+                        [style.paddingRight.px]="note.noteGapRight ?? DEFAULT_GAP"
+                      >
+                        @if (note.type === 'curve') {
+                          <span class="note-label">{{ note.noteLabel || '—' }}</span>
+                        } @else {
+                          <span class="note-label">{{ categorizeStraight(note.distance) }}</span>
+                        }
+                      </div>
+
+                      <div
+                        class="col col--right"
+                        contenteditable="true"
+                        (blur)="saveFieldDiv(note, 'noteAfter', $event)"
+                        [textContent]="note.noteAfter || ''"
+                        data-placeholder="dre."
+                        [style.fontSize.px]="note.noteAfterSize ?? DEFAULT_SIZE"
+                      ></div>
+                    </div>
+
                   </div>
 
-                  <div
-                    class="col col--right"
-                    contenteditable="true"
-                    (blur)="saveFieldDiv(note, 'noteAfter', $event)"
-                    [textContent]="note.noteAfter || ''"
-                    data-placeholder="dre."
-                    [style.fontSize.px]="note.noteAfterSize ?? DEFAULT_SIZE"
-                  ></div>
-                </div>
-
+                  @if ((!segment.isSuperset && !last) || (segment.isSuperset && last && hasNotesAfter(note))) {
+                    <div
+                      class="page-break-divider"
+                      [class.active]="note.pageBreakAfter"
+                      (click)="toggleBreak(note.id)"
+                      title="{{ note.pageBreakAfter ? 'Treure salt de pàgina' : 'Inserir salt de pàgina' }}"
+                    >
+                      <span class="divider-label">{{ note.pageBreakAfter ? '✂ salt de pàgina' : '+ salt de pàgina' }}</span>
+                    </div>
+                  }
+                }
               </div>
             }
           </div>
         }
+
       </div>
     } @else {
       <div class="loading-screen">Carregant notes...</div>
@@ -202,6 +233,94 @@ const MAX_GAP = 80;
     .page-rally { font-size: 14px; font-weight: 600; color: #475569; flex: 1; }
     .page-stage { font-size: 16px; font-weight: 700; color: #0f172a; flex: 1; text-align: center; }
     .page-info { font-size: 11px; color: #64748b; flex: 1; text-align: right; }
+
+    /* ── Break banner: shown at top of pages caused by a manual break ── */
+    .break-banner {
+      font-family: sans-serif;
+      font-size: 11px;
+      color: #2563eb;
+      background: #eff6ff;
+      border: 1px dashed #93c5fd;
+      border-radius: 4px;
+      padding: 4px 10px;
+      margin-bottom: 4px;
+      cursor: pointer;
+      text-align: center;
+      flex-shrink: 0;
+      user-select: none;
+    }
+    .break-banner:hover {
+      background: #dbeafe;
+      border-color: #2563eb;
+    }
+
+    /* ── Page break divider (screen only) ── */
+    .page-break-divider {
+      display: flex;
+      align-items: center;
+      height: 12px;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.15s;
+      position: relative;
+      margin: 0 -16mm;
+      padding: 0 16mm;
+    }
+    .page-break-divider::before {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #cbd5e1;
+      transition: background 0.15s, height 0.15s;
+    }
+    .page-break-divider:hover,
+    .page-break-divider.active {
+      opacity: 1;
+    }
+    .page-break-divider.active::before {
+      background: #2563eb;
+      height: 2px;
+    }
+    .page-break-divider:hover:not(.active)::before {
+      background: #94a3b8;
+    }
+    .divider-label {
+      font-family: sans-serif;
+      font-size: 10px;
+      white-space: nowrap;
+      padding: 0 8px;
+      color: #94a3b8;
+      user-select: none;
+    }
+    .page-break-divider.active .divider-label {
+      color: #2563eb;
+      font-weight: 600;
+    }
+    .note-block:hover + .page-break-divider,
+    .page-break-divider:hover {
+      opacity: 1;
+    }
+
+    /* ── Segment wrapper (propagate flex to children) ── */
+    .segment-normal {
+      display: contents;
+    }
+
+    /* ── Superset: rectangle vermell que engloba el grup ── */
+    .superset-block {
+      border: 3px solid #dc2626;
+      border-radius: 4px;
+      margin: 4px 0;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    .superset-block .note-block:last-child {
+      border-bottom: none;
+    }
+    .superset-block .note-block {
+      flex: 1;
+    }
 
     /* ── Note block ── */
     .note-block {
@@ -303,6 +422,8 @@ const MAX_GAP = 80;
 
       .screen-controls { display: none !important; }
       .note-toolbar { display: none !important; }
+      .page-break-divider { display: none !important; }
+      .break-banner { display: none !important; }
       .print-wrapper { padding-top: 0; background: white; }
 
       .page {
@@ -322,6 +443,7 @@ export class StagePrintComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private stageService = inject(StageService);
   private paceNotesService = inject(PaceNotesService);
+  private noteGroupService = inject(NoteGroupService);
   private rallyService = inject(RallyService);
   private originalTitle = document.title;
 
@@ -332,13 +454,21 @@ export class StagePrintComponent implements OnInit, OnDestroy {
 
   stage = this.stageService.currentStage;
   rally = signal<Rally | null>(null);
-  pages = signal<PaceNote[][]>([]);
   currentDate = new Date();
+
+  pages = signal<PrintPage[]>([]);
 
   noteGridCols(note: PaceNote): string {
     const pos = note.notePosition ?? DEFAULT_POSITION;
     const right = 100 - pos;
     return `${pos}fr auto ${right}fr`;
+  }
+
+  /** True if this note is not the last in stage order (divider / break after it can matter). */
+  hasNotesAfter(note: PaceNote): boolean {
+    const list = this.paceNotesService.notes();
+    const i = list.findIndex(n => n.id === note.id);
+    return i >= 0 && i < list.length - 1;
   }
 
   async ngOnInit() {
@@ -350,14 +480,27 @@ export class StagePrintComponent implements OnInit, OnDestroy {
     this.stageService.currentStage.set(stage);
 
     if (stage) {
-      const [, rally] = await Promise.all([
+      const [, , rally] = await Promise.all([
         this.paceNotesService.loadNotesByStage(stageId),
+        this.noteGroupService.loadByStage(stageId),
         this.rallyService.getRallyById(stage.rallyId),
       ]);
       this.rally.set(rally);
       this.buildPages();
       if (rally) document.title = `${rally.name} - ${stage.name}`;
     }
+  }
+
+  toggleBreak(noteId: string): void {
+    const note = this.paceNotesService.notes().find(n => n.id === noteId);
+    if (!note) return;
+    const pageBreakAfter = !note.pageBreakAfter;
+    const updated = { ...note, pageBreakAfter };
+    this.paceNotesService.notes.set(
+      this.paceNotesService.notes().map(n => (n.id === noteId ? updated : n))
+    );
+    this.buildPages();
+    void this.paceNotesService.updateNote({ id: noteId, pageBreakAfter });
   }
 
   changePosition(note: PaceNote, value: number): void {
@@ -395,11 +538,63 @@ export class StagePrintComponent implements OnInit, OnDestroy {
 
   private buildPages(): void {
     const notes = this.paceNotesService.notes();
-    const result: PaceNote[][] = [];
-    for (let i = 0; i < notes.length; i += NOTES_PER_PAGE) {
-      result.push(notes.slice(i, i + NOTES_PER_PAGE));
+    const breaks = new Set(notes.filter(n => n.pageBreakAfter).map(n => n.id));
+    const pages: PrintPage[] = [];
+
+    // Build segments of consecutive same-group notes
+    const segments: NoteSegment[] = [];
+    for (const note of notes) {
+      const last = segments[segments.length - 1];
+      const noteGroupId = note.groupId ?? null;
+      const isSuperset = noteGroupId !== null;
+
+      if (last && last.isSuperset === isSuperset && (noteGroupId === null || last.notes[0].groupId === noteGroupId)) {
+        last.notes.push(note);
+      } else {
+        segments.push({ notes: [note], isSuperset });
+      }
     }
-    this.pages.set(result);
+
+    let currentSegments: NoteSegment[] = [];
+    let pendingBreakNoteId: string | null = null;
+    let pageIndex = 0;
+
+    const flush = (breakNoteId: string | null = null) => {
+      if (currentSegments.length > 0) {
+        pages.push({ segments: currentSegments, pageIndex: pageIndex++, breakNoteId: pendingBreakNoteId });
+        currentSegments = [];
+        pendingBreakNoteId = breakNoteId;
+      }
+    };
+
+    for (let si = 0; si < segments.length; si++) {
+      const seg = segments[si];
+      if (!seg.isSuperset) {
+        let sliceStart = 0;
+        for (let i = 0; i < seg.notes.length; i++) {
+          const note = seg.notes[i];
+          if (breaks.has(note.id) && i < seg.notes.length - 1) {
+            currentSegments.push({ notes: seg.notes.slice(sliceStart, i + 1), isSuperset: false });
+            flush(note.id);
+            sliceStart = i + 1;
+          }
+        }
+        const remaining = seg.notes.slice(sliceStart);
+        if (remaining.length > 0) {
+          currentSegments.push({ notes: remaining, isSuperset: false });
+        }
+      } else {
+        currentSegments.push(seg);
+        const lastNote = seg.notes[seg.notes.length - 1];
+        if (breaks.has(lastNote.id) && si < segments.length - 1) {
+          flush(lastNote.id);
+        }
+      }
+    }
+
+    flush();
+
+    this.pages.set(pages);
   }
 
   private loadFont(): void {

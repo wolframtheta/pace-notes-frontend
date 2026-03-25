@@ -44,6 +44,7 @@ export class PaceNotesService {
     return {
       id: row.id,
       stageId: row.stageId ?? row.stage_id,
+      groupId: row.groupId ?? row.group_id ?? null,
       position: Number(row.position),
       type: row.type,
       direction: row.direction,
@@ -58,6 +59,7 @@ export class PaceNotesService {
       notePosition: row.notePosition ?? row.note_position ?? undefined,
       noteGapLeft: row.noteGapLeft ?? row.note_gap_left ?? undefined,
       noteGapRight: row.noteGapRight ?? row.note_gap_right ?? undefined,
+      pageBreakAfter: !!(row.pageBreakAfter ?? row.page_break_after),
       lat: Number(row.lat),
       lng: Number(row.lng),
       createdAt: new Date(row.createdAt ?? row.created_at),
