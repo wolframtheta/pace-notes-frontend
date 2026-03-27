@@ -14,11 +14,24 @@ import { AuthService } from '../../../../core/auth/services/auth.service';
   imports: [FormsModule, RouterLink, InputText, Password, Button, Card, MessageModule],
   template: `
     <div class="flex items-center justify-center min-h-screen bg-barrufet-50">
-      <p-card class="w-full max-w-md shadow-lg border border-barrufet-100">
+      <p-card class="w-full max-w-lg shadow-lg border border-barrufet-100">
         <ng-template pTemplate="header">
-          <div class="text-center pt-6 pb-2">
-            <h1 class="text-2xl font-bold text-barrufet-900">Barrufa Notes</h1>
-            <p class="text-slate-600 mt-1">Inicia sessió per continuar</p>
+          <div class="flex flex-col items-center pt-6 pb-2 px-4">
+            <div class="flex min-w-0 items-center gap-5 sm:gap-6">
+              <img
+                src="/assets/logo.png"
+                width="80"
+                height="96"
+                alt=""
+                class="h-20 w-auto shrink-0 object-contain sm:h-28"
+              />
+              <h1 class="text-3xl tracking-tight sm:text-5xl sm:tracking-[0.01em] leading-tight">
+                <span class="font-medium text-slate-800">Barrufa</span><span class="font-normal text-slate-500"> Notes</span>
+              </h1>
+            </div>
+            <p class="text-slate-600 mt-5 text-center text-lg sm:text-xl">
+              Inicia sessió per continuar
+            </p>
           </div>
         </ng-template>
 
