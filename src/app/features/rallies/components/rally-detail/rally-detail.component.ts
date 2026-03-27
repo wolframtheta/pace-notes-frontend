@@ -32,7 +32,7 @@ import { NotificationService } from '../../../../core/services/notification.serv
           </div>
           <button
             (click)="createTram()"
-            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition"
+            class="bg-accent-500 hover:bg-accent-600 text-white px-4 py-2 rounded transition"
           >
             + Nou Tram
           </button>
@@ -75,7 +75,7 @@ import { NotificationService } from '../../../../core/services/notification.serv
                     <div class="flex gap-2 ml-4">
                       <a
                         [routerLink]="['/stages', stage.id]"
-                        class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition"
+                        class="bg-accent-500 hover:bg-accent-600 text-white px-3 py-1 rounded text-sm transition"
                       >
                         Veure
                       </a>

@@ -1,6 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { InputText } from 'primeng/inputtext';
 import { Password } from 'primeng/password';
 import { Button } from 'primeng/button';
@@ -13,12 +13,12 @@ import { AuthService } from '../../../../core/auth/services/auth.service';
   standalone: true,
   imports: [FormsModule, RouterLink, InputText, Password, Button, Card, MessageModule],
   template: `
-    <div class="flex items-center justify-center min-h-screen bg-gray-50">
-      <p-card class="w-full max-w-md shadow-lg">
+    <div class="flex items-center justify-center min-h-screen bg-barrufet-50">
+      <p-card class="w-full max-w-md shadow-lg border border-barrufet-100">
         <ng-template pTemplate="header">
           <div class="text-center pt-6 pb-2">
-            <h1 class="text-2xl font-bold text-gray-800">Pace Notes</h1>
-            <p class="text-gray-500 mt-1">Crea el teu compte</p>
+            <h1 class="text-2xl font-bold text-barrufet-900">Barrufa Notes</h1>
+            <p class="text-slate-600 mt-1">Crea el teu compte</p>
           </div>
         </ng-template>
 
@@ -28,7 +28,7 @@ import { AuthService } from '../../../../core/auth/services/auth.service';
           }
 
           <div class="flex flex-col gap-1">
-            <label for="name" class="font-medium text-sm text-gray-700">Nom (opcional)</label>
+            <label for="name" class="font-medium text-sm text-slate-700">Nom (opcional)</label>
             <input
               pInputText
               id="name"
@@ -41,7 +41,7 @@ import { AuthService } from '../../../../core/auth/services/auth.service';
           </div>
 
           <div class="flex flex-col gap-1">
-            <label for="email" class="font-medium text-sm text-gray-700">Email</label>
+            <label for="email" class="font-medium text-sm text-slate-700">Email</label>
             <input
               pInputText
               id="email"
@@ -55,7 +55,7 @@ import { AuthService } from '../../../../core/auth/services/auth.service';
           </div>
 
           <div class="flex flex-col gap-1">
-            <label for="password" class="font-medium text-sm text-gray-700">Contrasenya</label>
+            <label for="password" class="font-medium text-sm text-slate-700">Contrasenya</label>
             <p-password
               id="password"
               [(ngModel)]="password"
@@ -69,7 +69,7 @@ import { AuthService } from '../../../../core/auth/services/auth.service';
           </div>
 
           <div class="flex flex-col gap-1">
-            <label for="confirm" class="font-medium text-sm text-gray-700">Confirma la contrasenya</label>
+            <label for="confirm" class="font-medium text-sm text-slate-700">Confirma la contrasenya</label>
             <p-password
               id="confirm"
               [(ngModel)]="confirm"
@@ -93,9 +93,13 @@ import { AuthService } from '../../../../core/auth/services/auth.service';
         </form>
 
         <ng-template pTemplate="footer">
-          <div class="text-center text-sm text-gray-500">
+          <div class="text-center text-sm text-slate-600">
             Ja tens compte?
-            <a routerLink="/login" class="text-primary-600 font-medium hover:underline ml-1">
+            <a
+              routerLink="/login"
+              [queryParams]="route.snapshot.queryParams"
+              class="text-barrufet-600 font-semibold hover:underline ml-1"
+            >
               Inicia sessió
             </a>
           </div>
@@ -106,6 +110,7 @@ import { AuthService } from '../../../../core/auth/services/auth.service';
 })
 export class RegisterComponent {
   private authService = inject(AuthService);
+  protected route = inject(ActivatedRoute);
 
   name = '';
   email = '';
@@ -127,7 +132,13 @@ export class RegisterComponent {
     this.loading.set(true);
     this.error.set(null);
     try {
-      await this.authService.register(this.email, this.password, this.name || undefined);
+      const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+      await this.authService.register(
+        this.email,
+        this.password,
+        this.name || undefined,
+        returnUrl,
+      );
     } catch (err: any) {
       this.error.set(err?.error?.message ?? 'Error en el registre');
     } finally {

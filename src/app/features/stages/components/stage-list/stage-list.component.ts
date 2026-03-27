@@ -15,7 +15,7 @@ import { LoadingService } from '../../../../core/services/loading.service';
         <h2 class="text-2xl font-bold">Trams</h2>
         <a
           routerLink="/stage-editor"
-          class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition"
+          class="bg-accent-500 hover:bg-accent-600 text-white px-4 py-2 rounded transition"
         >
           Crear Nou Tram
         </a>
@@ -63,7 +63,7 @@ import { LoadingService } from '../../../../core/services/loading.service';
                 <div class="flex gap-2 ml-4">
                   <a
                     [routerLink]="['/stages', stage.id]"
-                    class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition"
+                    class="bg-accent-500 hover:bg-accent-600 text-white px-3 py-1 rounded text-sm transition"
                   >
                     Veure
                   </a>

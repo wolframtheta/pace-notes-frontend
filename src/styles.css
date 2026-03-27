@@ -1,5 +1,40 @@
 /* You can add global styles to this file, and also import other style files */
 
+/* Guia Barrufa Notes: Montserrat, Blau Barrufet, Blanc, Taronja accent */
+@theme {
+  --font-sans: "Montserrat", ui-sans-serif, system-ui, sans-serif;
+
+  --color-barrufet-50: #e6f4ff;
+  --color-barrufet-100: #cce8ff;
+  --color-barrufet-200: #99d1ff;
+  --color-barrufet-300: #66baff;
+  --color-barrufet-400: #339dff;
+  --color-barrufet-500: #0077f2;
+  --color-barrufet-600: #005fc4;
+  --color-barrufet-700: #004896;
+  --color-barrufet-800: #003068;
+  --color-barrufet-900: #00183a;
+  --color-barrufet-950: #000c1d;
+
+  --color-accent-50: #fff3f0;
+  --color-accent-100: #ffe0d9;
+  --color-accent-200: #ffc2b3;
+  --color-accent-300: #ffa38d;
+  --color-accent-400: #ff8566;
+  --color-accent-500: #ff7043;
+  --color-accent-600: #cc5a36;
+  --color-accent-700: #994328;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+  }
+  body {
+    @apply bg-white text-slate-800 antialiased;
+  }
+}
+
 /* Layer ordering: PrimeNG must be between Tailwind base and utilities */
 @layer tailwind-base, primeng, tailwind-utilities;
 

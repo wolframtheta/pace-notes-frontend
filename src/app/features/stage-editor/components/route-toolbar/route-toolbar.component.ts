@@ -9,7 +9,7 @@ import { MapService } from '../../services/map.service';
     <div class="bg-white p-4 rounded-lg shadow-lg space-y-2">
       <button 
         (click)="onAnalyze()"
-        class="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition"
+        class="w-full bg-accent-500 hover:bg-accent-600 text-white px-4 py-2 rounded transition"
       >
         Analitzar Ruta
       </button>

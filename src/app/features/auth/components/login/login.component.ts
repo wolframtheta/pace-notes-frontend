@@ -1,6 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { InputText } from 'primeng/inputtext';
 import { Password } from 'primeng/password';
 import { Button } from 'primeng/button';
@@ -13,12 +13,12 @@ import { AuthService } from '../../../../core/auth/services/auth.service';
   standalone: true,
   imports: [FormsModule, RouterLink, InputText, Password, Button, Card, MessageModule],
   template: `
-    <div class="flex items-center justify-center min-h-screen bg-gray-50">
-      <p-card class="w-full max-w-md shadow-lg">
+    <div class="flex items-center justify-center min-h-screen bg-barrufet-50">
+      <p-card class="w-full max-w-md shadow-lg border border-barrufet-100">
         <ng-template pTemplate="header">
           <div class="text-center pt-6 pb-2">
-            <h1 class="text-2xl font-bold text-gray-800">Pace Notes</h1>
-            <p class="text-gray-500 mt-1">Inicia sessió per continuar</p>
+            <h1 class="text-2xl font-bold text-barrufet-900">Barrufa Notes</h1>
+            <p class="text-slate-600 mt-1">Inicia sessió per continuar</p>
           </div>
         </ng-template>
 
@@ -28,7 +28,7 @@ import { AuthService } from '../../../../core/auth/services/auth.service';
           }
 
           <div class="flex flex-col gap-1">
-            <label for="email" class="font-medium text-sm text-gray-700">Email</label>
+            <label for="email" class="font-medium text-sm text-slate-700">Email</label>
             <input
               pInputText
               id="email"
@@ -42,7 +42,7 @@ import { AuthService } from '../../../../core/auth/services/auth.service';
           </div>
 
           <div class="flex flex-col gap-1">
-            <label for="password" class="font-medium text-sm text-gray-700">Contrasenya</label>
+            <label for="password" class="font-medium text-sm text-slate-700">Contrasenya</label>
             <p-password
               id="password"
               [(ngModel)]="password"
@@ -66,9 +66,13 @@ import { AuthService } from '../../../../core/auth/services/auth.service';
         </form>
 
         <ng-template pTemplate="footer">
-          <div class="text-center text-sm text-gray-500">
+          <div class="text-center text-sm text-slate-600">
             No tens compte?
-            <a routerLink="/register" class="text-primary-600 font-medium hover:underline ml-1">
+            <a
+              routerLink="/register"
+              [queryParams]="route.snapshot.queryParams"
+              class="text-barrufet-600 font-semibold hover:underline ml-1"
+            >
               Registra't
             </a>
           </div>
@@ -79,6 +83,7 @@ import { AuthService } from '../../../../core/auth/services/auth.service';
 })
 export class LoginComponent {
   private authService = inject(AuthService);
+  protected route = inject(ActivatedRoute);
 
   email = '';
   password = '';
@@ -90,7 +95,8 @@ export class LoginComponent {
     this.loading.set(true);
     this.error.set(null);
     try {
-      await this.authService.login(this.email, this.password);
+      const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+      await this.authService.login(this.email, this.password, returnUrl);
     } catch (err: any) {
       this.error.set(err?.error?.message ?? 'Credencials incorrectes');
     } finally {

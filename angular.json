@@ -6,7 +6,7 @@
   },
   "newProjectRoot": "projects",
   "projects": {
-    "notes-rallies": {
+    "barrufa-notes": {
       "projectType": "application",
       "schematics": {},
       "root": "",
@@ -56,10 +56,10 @@
           "builder": "@angular/build:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "notes-rallies:build:production"
+              "buildTarget": "barrufa-notes:build:production"
             },
             "development": {
-              "buildTarget": "notes-rallies:build:development"
+              "buildTarget": "barrufa-notes:build:development"
             }
           },
           "defaultConfiguration": "development"

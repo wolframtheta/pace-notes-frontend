@@ -39,7 +39,7 @@ import { NoteGroup } from '../../../../core/models/note-group.model';
             }
             <button
               (click)="editStage()"
-              class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition"
+              class="bg-accent-500 hover:bg-accent-600 text-white px-4 py-2 rounded transition"
             >
               Editar
             </button>
@@ -86,7 +86,7 @@ import { NoteGroup } from '../../../../core/models/note-group.model';
                   <span>Corba E</span>
                 </div>
                 <div class="flex items-center gap-2">
-                  <div class="w-3 h-3 bg-blue-500 rounded"></div>
+                  <div class="w-3 h-3 bg-barrufet-500 rounded"></div>
                   <span>Corba D</span>
                 </div>
                 <div class="flex items-center gap-2">

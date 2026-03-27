@@ -47,7 +47,7 @@ import { PaceNotesService } from '../../services/pace-notes.service';
         <div class="mt-8 flex gap-4 print:hidden">
           <button
             (click)="print()"
-            class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded transition"
+            class="bg-accent-500 hover:bg-accent-600 text-white px-6 py-2 rounded transition"
           >
             Imprimir
           </button>

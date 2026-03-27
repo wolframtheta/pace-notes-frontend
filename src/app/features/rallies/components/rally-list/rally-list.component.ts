@@ -21,7 +21,7 @@ import { TextareaModule } from 'primeng/textarea';
         <h2 class="text-2xl font-bold">Rallies</h2>
         <button
           (click)="openCreateDialog()"
-          class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition"
+          class="bg-accent-500 hover:bg-accent-600 text-white px-4 py-2 rounded transition"
         >
           Nou Rally
         </button>
@@ -36,7 +36,7 @@ import { TextareaModule } from 'primeng/textarea';
         <div class="grid gap-4">
           @for (rally of rallyService.rallies(); track rally.id) {
             <div
-              class="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl transition-shadow cursor-pointer border-l-4 border-blue-600"
+              class="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl transition-shadow cursor-pointer border-l-4 border-barrufet-500"
               (click)="viewRally(rally.id)"
             >
               <div class="flex justify-between items-start">
@@ -47,7 +47,7 @@ import { TextareaModule } from 'primeng/textarea';
                   }
                   <div class="flex gap-6 text-sm text-gray-500">
                     <span>
-                      <span class="font-semibold text-blue-600">{{ rally.stageCount ?? 0 }}</span>
+                      <span class="font-semibold text-barrufet-600">{{ rally.stageCount ?? 0 }}</span>
                       {{ (rally.stageCount ?? 0) === 1 ? 'tram' : 'trams' }}
                     </span>
                     <span>Creat: {{ rally.createdAt | date:'dd/MM/yyyy' }}</span>
@@ -56,7 +56,7 @@ import { TextareaModule } from 'primeng/textarea';
                 <div class="flex gap-2 ml-4" (click)="$event.stopPropagation()">
                   <button
                     (click)="viewRally(rally.id)"
-                    class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition"
+                    class="bg-accent-500 hover:bg-accent-600 text-white px-3 py-1 rounded text-sm transition"
                   >
                     Veure
                   </button>

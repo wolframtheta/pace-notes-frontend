@@ -10,7 +10,7 @@ import { Component, input } from '@angular/core';
       
       <div class="space-y-2 text-sm">
         <div class="flex justify-between">
-          <span class="text-gray-600">Waypoints:</span>
+          <span class="text-gray-600">Inici / final:</span>
           <span class="font-semibold">{{ waypointCount() }}</span>
         </div>
         

@@ -30,7 +30,7 @@ import { ProgressSpinner } from 'primeng/progressspinner';
       <app-header />
       <div class="flex flex-1 overflow-hidden">
         <app-sidebar />
-        <main class="flex-1 overflow-auto bg-gray-50 p-6">
+        <main class="flex-1 overflow-auto bg-white p-6">
           <router-outlet />
         </main>
       </div>

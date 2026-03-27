@@ -16,7 +16,7 @@ import { ConfirmationService } from 'primeng/api';
         <h2 class="text-2xl font-bold">Configuració de Notes</h2>
         <button
           (click)="showCreateForm = !showCreateForm"
-          class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition"
+          class="bg-accent-500 hover:bg-accent-600 text-white px-4 py-2 rounded transition"
         >
           Nova Configuració
         </button>
@@ -80,7 +80,7 @@ import { ConfirmationService } from 'primeng/api';
             <div class="flex gap-2">
               <button
                 (click)="createConfig()"
-                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition"
+                class="bg-accent-500 hover:bg-accent-600 text-white px-4 py-2 rounded transition"
               >
                 Crear
               </button>
@@ -112,7 +112,7 @@ import { ConfirmationService } from 'primeng/api';
                 @if (!config.isActive) {
                   <button
                     (click)="activateConfig(config.id)"
-                    class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition"
+                    class="bg-accent-500 hover:bg-accent-600 text-white px-3 py-1 rounded text-sm transition"
                   >
                     Activar
                   </button>

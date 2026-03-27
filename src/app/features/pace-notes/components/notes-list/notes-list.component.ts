@@ -13,7 +13,7 @@ import { PaceNotesService } from '../../services/pace-notes.service';
         <h2 class="text-2xl font-bold">Notes de Pilot</h2>
         <button
           (click)="showPrintView()"
-          class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition"
+          class="bg-accent-500 hover:bg-accent-600 text-white px-4 py-2 rounded transition"
         >
           Editar i Imprimir
         </button>
@@ -48,7 +48,7 @@ import { PaceNotesService } from '../../services/pace-notes.service';
                   </td>
                   <td class="p-4">
                     <span class="inline-block px-2 py-1 rounded text-xs"
-                          [class.bg-blue-100]="note.type === 'curve'"
+                          [class.bg-barrufet-100]="note.type === 'curve'"
                           [class.bg-green-100]="note.type === 'straight'">
                       {{ note.type === 'curve' ? 'Corba' : 'Recta' }}
                     </span>

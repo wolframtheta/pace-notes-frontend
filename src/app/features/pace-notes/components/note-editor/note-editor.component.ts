@@ -33,7 +33,7 @@ import { PaceNote } from '../../../../core/models/pace-note.model';
           <div class="flex gap-2">
             <button
               (click)="saveChanges()"
-              class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition"
+              class="bg-accent-500 hover:bg-accent-600 text-white px-4 py-2 rounded transition"
             >
               Guardar
             </button>

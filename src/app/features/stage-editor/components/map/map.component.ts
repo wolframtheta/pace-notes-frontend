@@ -1,4 +1,5 @@
-import { Component, OnInit, OnDestroy, AfterViewInit, inject, signal, output } from '@angular/core';
+import { Component, OnDestroy, AfterViewInit, inject, signal, output } from '@angular/core';
+import { Subscription } from 'rxjs';
 import { MapService } from '../../services/map.service';
 import { OsrmService } from '../../services/osrm.service';
 
@@ -30,6 +31,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   private keydownHandler?: (e: KeyboardEvent) => void;
   private keyupHandler?: (e: KeyboardEvent) => void;
   private cKeyPressed = signal(false);
+  private waypointSub?: Subscription;
 
   curvePointClicked = output<{ lat: number; lng: number }>();
   mapReady = output<void>();
@@ -42,7 +44,10 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       
       this.mapService.addClickListener((lat, lng) => {
         this.mapService.addWaypoint(lat, lng);
-        this.updateRoute();
+      });
+
+      this.waypointSub = this.mapService.waypointsChanged$.subscribe(() => {
+        void this.updateRoute();
       });
 
       this.mapService.addCurveNoteListener((lat, lng) => {
@@ -61,7 +66,7 @@ export class MapComponent implements AfterViewInit, OnDestroy {
       // Barra espaiadora per afegir waypoints
       if (e.code === 'Space') {
         e.preventDefault();
-        if (this.mapService.currentMode() === 'pan') {
+        if (this.mapService.currentMode() === 'pan' && this.mapService.canAddMoreWaypoints()) {
           this.mapService.setMode('addWaypoint');
         }
       }
@@ -122,14 +127,14 @@ export class MapComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    // Eliminar event listeners
+    this.waypointSub?.unsubscribe();
     if (this.keydownHandler) {
       document.removeEventListener('keydown', this.keydownHandler);
     }
     if (this.keyupHandler) {
       document.removeEventListener('keyup', this.keyupHandler);
     }
-    
+
     this.mapService.destroy();
   }
 }

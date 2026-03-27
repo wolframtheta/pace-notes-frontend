@@ -6,13 +6,13 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
   standalone: true,
   imports: [RouterLink, RouterLinkActive],
   template: `
-    <nav class="bg-gray-800 text-white w-64 min-h-screen p-4">
-      <ul class="space-y-2">
+    <nav class="bg-white text-slate-800 w-64 min-h-screen p-4 border-r border-barrufet-100">
+      <ul class="space-y-1">
         <li>
           <a 
             routerLink="/rallies" 
-            routerLinkActive="bg-blue-600"
-            class="block px-4 py-2 rounded hover:bg-gray-700 transition"
+            routerLinkActive="bg-barrufet-500 text-white shadow-sm"
+            class="block px-4 py-2 rounded-lg font-medium text-slate-700 hover:bg-barrufet-50 transition"
           >
             Rallies
           </a>
@@ -20,8 +20,8 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
         <li>
           <a 
             routerLink="/settings" 
-            routerLinkActive="bg-blue-600"
-            class="block px-4 py-2 rounded hover:bg-gray-700 transition"
+            routerLinkActive="bg-barrufet-500 text-white shadow-sm"
+            class="block px-4 py-2 rounded-lg font-medium text-slate-700 hover:bg-barrufet-50 transition"
           >
             Configuració
           </a>

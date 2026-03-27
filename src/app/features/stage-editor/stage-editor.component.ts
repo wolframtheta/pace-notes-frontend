@@ -1,4 +1,5 @@
 import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Router, ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MapComponent } from './components/map/map.component';
@@ -15,6 +16,8 @@ import { PaceNote, PaceNoteCreateInput } from '../../core/models/pace-note.model
 import { Stage } from '../../core/models/stage.model';
 import { NotificationService } from '../../core/services/notification.service';
 import { LoadingService } from '../../core/services/loading.service';
+import { GeocodingApiService, RoadPointResult } from './services/geocoding-api.service';
+import { tryParseCoordinates } from './utils/parse-coordinates';
 
 @Component({
   selector: 'app-stage-editor',
@@ -37,6 +40,98 @@ import { LoadingService } from '../../core/services/loading.service';
             class="w-full border rounded px-3 py-2"
             placeholder="Tram de Montserrat - SP1"
           />
+        </div>
+
+        <div class="bg-white p-4 rounded-lg shadow-lg space-y-4">
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div class="border border-slate-200 rounded-lg p-3 space-y-2">
+              <div class="flex justify-between items-center gap-2">
+                <span class="text-sm font-semibold text-slate-800">Inici</span>
+                <button
+                  type="button"
+                  (click)="clearSearchStart()"
+                  [disabled]="!hasStartSearchContent()"
+                  class="text-xs px-2 py-1 rounded border border-slate-300 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none"
+                >
+                  Treure
+                </button>
+              </div>
+              <label class="block text-xs text-slate-600">Carretera o coordenades (lat, lng)</label>
+              <input
+                [(ngModel)]="roadSearchStartRef"
+                (ngModelChange)="onSearchStartChange()"
+                type="text"
+                class="w-full border rounded px-3 py-2 text-sm"
+                placeholder="TP-2442 o 41,39 2,17"
+              />
+              <label class="block text-xs text-slate-600">PK (km), opcional si no són coordenades</label>
+              <input
+                [(ngModel)]="roadSearchStartKm"
+                (ngModelChange)="onSearchStartChange()"
+                type="text"
+                class="w-full border rounded px-3 py-2 text-sm"
+                placeholder="1,70"
+              />
+              <button
+                type="button"
+                (click)="goSearchStart()"
+                class="w-full sm:w-auto px-4 py-2 rounded bg-emerald-700 text-white text-sm hover:bg-emerald-800"
+              >
+                Anar a inici
+              </button>
+            </div>
+            <div class="border border-slate-200 rounded-lg p-3 space-y-2">
+              <div class="flex justify-between items-center gap-2">
+                <span class="text-sm font-semibold text-slate-800">Final</span>
+                <button
+                  type="button"
+                  (click)="clearSearchEnd()"
+                  [disabled]="!hasEndSearchContent()"
+                  class="text-xs px-2 py-1 rounded border border-slate-300 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none"
+                >
+                  Treure
+                </button>
+              </div>
+              <label class="block text-xs text-slate-600">Carretera o coordenades (lat, lng)</label>
+              <input
+                [(ngModel)]="roadSearchEndRef"
+                (ngModelChange)="onSearchEndChange()"
+                type="text"
+                class="w-full border rounded px-3 py-2 text-sm"
+                placeholder="C-16 o 42,12 2,45"
+              />
+              <label class="block text-xs text-slate-600">PK (km), opcional</label>
+              <input
+                [(ngModel)]="roadSearchEndKm"
+                (ngModelChange)="onSearchEndChange()"
+                type="text"
+                class="w-full border rounded px-3 py-2 text-sm"
+                placeholder="12,5"
+              />
+              <button
+                type="button"
+                (click)="goSearchEnd()"
+                class="w-full sm:w-auto px-4 py-2 rounded bg-rose-700 text-white text-sm hover:bg-rose-800"
+              >
+                Anar a final
+              </button>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-2 items-center">
+            <button
+              type="button"
+              (click)="clearRoadSearch()"
+              [disabled]="!hasRoadSearchContent()"
+              class="px-3 py-2 rounded border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:pointer-events-none text-sm"
+              title="Netejar tots els camps i pins"
+            >
+              Netejar tota la cerca
+            </button>
+          </div>
+          <p class="text-xs text-gray-500">
+            El mateix camp accepta referència de carretera o dues coordenades (lat, lng). Amb coordenades el PK s’ignora.
+            El PK ve d’OSM i pot diferir del punt quilomètric oficial. Pins: verd inici, vermell final.
+          </p>
         </div>
         
         <div class="flex-1 min-h-0">
@@ -69,7 +164,7 @@ import { LoadingService } from '../../core/services/loading.service';
                     <span>Corba Esquerra</span>
                   </div>
                   <div class="flex items-center gap-2">
-                    <div class="w-4 h-4 bg-blue-500 rounded"></div>
+                    <div class="w-4 h-4 bg-barrufet-500 rounded"></div>
                     <span>Corba Dreta</span>
                   </div>
                   <div class="flex items-center gap-2">
@@ -149,10 +244,15 @@ export class StageEditorComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private notification = inject(NotificationService);
   private loading = inject(LoadingService);
+  private geocodingApi = inject(GeocodingApiService);
 
   paceNotes = signal<PaceNote[]>([]);
   totalDistance = signal<number | null>(null);
   stageName = '';
+  roadSearchStartRef = '';
+  roadSearchStartKm = '';
+  roadSearchEndRef = '';
+  roadSearchEndKm = '';
   currentRouteGeometry: any = null;
 
   private mapInitialized = false;
@@ -199,6 +299,142 @@ export class StageEditorComponent implements OnInit {
     this.tryHydrateFromPendingStage();
   }
 
+  onSearchStartChange(): void {
+    const line = this.roadSearchStartRef?.trim() ?? '';
+    if (!line) {
+      this.mapService.clearRoadSearchStartPin();
+    }
+  }
+
+  onSearchEndChange(): void {
+    const line = this.roadSearchEndRef?.trim() ?? '';
+    if (!line) {
+      this.mapService.clearRoadSearchEndPin();
+    }
+  }
+
+  hasStartSearchContent(): boolean {
+    const line = this.roadSearchStartRef?.trim() ?? '';
+    const km = this.roadSearchStartKm?.trim() ?? '';
+    return !!(line || km || this.mapService.hasRoadSearchStartPin());
+  }
+
+  hasEndSearchContent(): boolean {
+    const line = this.roadSearchEndRef?.trim() ?? '';
+    const km = this.roadSearchEndKm?.trim() ?? '';
+    return !!(line || km || this.mapService.hasRoadSearchEndPin());
+  }
+
+  /** Hi ha text, o algun pin de cerca al mapa. */
+  hasRoadSearchContent(): boolean {
+    const a = this.roadSearchStartRef?.trim() ?? '';
+    const b = this.roadSearchStartKm?.trim() ?? '';
+    const c = this.roadSearchEndRef?.trim() ?? '';
+    const d = this.roadSearchEndKm?.trim() ?? '';
+    return !!(a || b || c || d || this.mapService.hasRoadSearchPin());
+  }
+
+  clearSearchStart(): void {
+    this.roadSearchStartRef = '';
+    this.roadSearchStartKm = '';
+    this.mapService.clearRoadSearchStartPin();
+  }
+
+  clearSearchEnd(): void {
+    this.roadSearchEndRef = '';
+    this.roadSearchEndKm = '';
+    this.mapService.clearRoadSearchEndPin();
+  }
+
+  clearRoadSearch(): void {
+    this.clearSearchStart();
+    this.clearSearchEnd();
+  }
+
+  async goSearchStart(): Promise<void> {
+    const line = this.roadSearchStartRef?.trim() ?? '';
+    if (!line) {
+      this.notification.warn('Inici', 'Indica carretera o coordenades (lat, lng)');
+      return;
+    }
+    await this.runSearchToPin(
+      line,
+      this.roadSearchStartKm,
+      'start',
+      (lat, lng) => {
+        this.mapService.setRoadSearchStartPin(lat, lng);
+        this.mapService.fitSearchPinsView();
+      },
+    );
+  }
+
+  async goSearchEnd(): Promise<void> {
+    const line = this.roadSearchEndRef?.trim() ?? '';
+    if (!line) {
+      this.notification.warn('Final', 'Indica carretera o coordenades (lat, lng)');
+      return;
+    }
+    await this.runSearchToPin(
+      line,
+      this.roadSearchEndKm,
+      'end',
+      (lat, lng) => {
+        this.mapService.setRoadSearchEndPin(lat, lng);
+        this.mapService.fitSearchPinsView();
+      },
+    );
+  }
+
+  private async resolveSearchLocation(
+    refLine: string,
+    kmRaw: string,
+  ): Promise<RoadPointResult> {
+    const t = refLine.trim();
+    const coords = tryParseCoordinates(t);
+    if (coords) {
+      return {
+        lat: coords.lat,
+        lng: coords.lng,
+        source: 'coordinates',
+        approximate: false,
+        detail: 'Coordenades',
+      };
+    }
+    return this.geocodingApi.roadPoint(t, kmRaw?.trim() || undefined);
+  }
+
+  private async runSearchToPin(
+    refLine: string,
+    kmField: string,
+    label: 'start' | 'end',
+    place: (lat: number, lng: number) => void,
+  ): Promise<void> {
+    try {
+      await this.loading.wrap(
+        (async () => {
+          const result = await this.resolveSearchLocation(refLine, kmField);
+          place(result.lat, result.lng);
+          const title = label === 'start' ? 'Inici' : 'Final';
+          this.notification.info(
+            `${title} trobat`,
+            result.detail ?? `${result.source} · ${result.approximate ? 'aproximat' : ''}`,
+          );
+        })(),
+      );
+    } catch (e: unknown) {
+      let msg = 'No s\'ha pogut resoldre el punt';
+      if (e instanceof HttpErrorResponse) {
+        const body = e.error;
+        if (body && typeof body === 'object' && 'message' in body) {
+          msg = String((body as { message: string }).message);
+        } else if (typeof body === 'string') {
+          msg = body;
+        }
+      }
+      this.notification.error('Cerca', msg);
+    }
+  }
+
   private tryHydrateFromPendingStage(): void {
     if (!this.mapInitialized || !this.pendingHydrateStage) return;
 
@@ -206,7 +442,11 @@ export class StageEditorComponent implements OnInit {
     this.pendingHydrateStage = null;
 
     if (stage.waypoints?.length) {
-      for (const wp of stage.waypoints) {
+      const wps =
+        stage.waypoints.length > 2
+          ? [stage.waypoints[0], stage.waypoints[stage.waypoints.length - 1]]
+          : stage.waypoints;
+      for (const wp of wps) {
         this.mapService.addWaypoint(wp.lat, wp.lng);
       }
     }

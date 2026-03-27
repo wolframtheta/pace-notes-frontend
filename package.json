@@ -1,9 +1,9 @@
 {
-  "name": "notes-rallies",
+  "name": "barrufa-notes",
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
-    "start": "node scripts/set-env.mjs && ng serve",
+    "start": "node scripts/set-env.mjs && ng serve --port 4300",
     "build": "node scripts/set-env.mjs && ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"
