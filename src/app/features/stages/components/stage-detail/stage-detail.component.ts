@@ -37,6 +37,15 @@ import { NoteGroup } from '../../../../core/models/note-group.model';
                 🖨 Imprimir Notes
               </button>
             }
+            @if (canPrintMaps()) {
+              <button
+                type="button"
+                (click)="printMaps()"
+                class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded transition"
+              >
+                🗺 Imprimir mapes
+              </button>
+            }
             <button
               (click)="editStage()"
               class="bg-accent-500 hover:bg-accent-600 text-white px-4 py-2 rounded transition"
@@ -526,6 +535,22 @@ export class StageDetailComponent implements OnInit, OnDestroy {
   printNotes(): void {
     const stageId = this.route.snapshot.paramMap.get('id');
     window.open(`/stages/${stageId}/print`, '_blank');
+  }
+
+  /** Waypoints o traç OSM suficient per centrar mapes d’impressió. */
+  canPrintMaps(): boolean {
+    const s = this.stage();
+    if (!s) return false;
+    const wps = s.waypoints;
+    if (Array.isArray(wps) && wps.length > 0) return true;
+    const g = s.routeGeometry as { type?: string; coordinates?: unknown[] } | undefined;
+    return g?.type === 'LineString' && Array.isArray(g.coordinates) && g.coordinates.length >= 2;
+  }
+
+  printMaps(): void {
+    const stageId = this.route.snapshot.paramMap.get('id');
+    if (!stageId) return;
+    window.open(`/stages/${stageId}/print-maps`, '_blank');
   }
 
   editStage(): void {

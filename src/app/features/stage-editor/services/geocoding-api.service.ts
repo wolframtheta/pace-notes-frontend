@@ -6,7 +6,7 @@ import { environment } from '../../../../environments/environment';
 export interface RoadPointResult {
   lat: number;
   lng: number;
-  source: 'overpass' | 'nominatim' | 'coordinates';
+  source: 'overpass' | 'overpass_milestone' | 'nominatim' | 'coordinates';
   approximate: boolean;
   detail?: string;
 }

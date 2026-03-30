@@ -1,4 +1,5 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Router, ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -26,12 +27,12 @@ import { tryParseCoordinates } from './utils/parse-coordinates';
   styles: [`
     :host {
       display: block;
-      height: 100%;
+      min-height: 100%;
     }
   `],
   template: `
-    <div class="h-full flex gap-4">
-      <div class="flex-1 flex flex-col gap-4">
+    <div class="min-h-full flex gap-4 pb-4">
+      <div class="flex-1 flex flex-col gap-4 min-w-0">
         <div class="bg-white p-4 rounded-lg shadow-lg">
           <label class="block text-sm font-medium mb-2">Nom del Tram</label>
           <input
@@ -44,7 +45,13 @@ import { tryParseCoordinates } from './utils/parse-coordinates';
 
         <div class="bg-white p-4 rounded-lg shadow-lg space-y-4">
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div class="border border-slate-200 rounded-lg p-3 space-y-2">
+            <div
+              class="border rounded-lg p-3 space-y-2 transition-shadow"
+              [class.border-slate-200]="activeRoadSearchPanel() !== 'start'"
+              [class.ring-2]="activeRoadSearchPanel() === 'start'"
+              [class.ring-emerald-600]="activeRoadSearchPanel() === 'start'"
+              [class.border-emerald-500]="activeRoadSearchPanel() === 'start'"
+            >
               <div class="flex justify-between items-center gap-2">
                 <span class="text-sm font-semibold text-slate-800">Inici</span>
                 <button
@@ -62,16 +69,18 @@ import { tryParseCoordinates } from './utils/parse-coordinates';
                 (ngModelChange)="onSearchStartChange()"
                 type="text"
                 class="w-full border rounded px-3 py-2 text-sm"
-                placeholder="TP-2442 o 41,39 2,17"
+                placeholder="TP-2442 o 41.387, 1.367"
               />
-              <label class="block text-xs text-slate-600">PK (km), opcional si no són coordenades</label>
-              <input
-                [(ngModel)]="roadSearchStartKm"
-                (ngModelChange)="onSearchStartChange()"
-                type="text"
-                class="w-full border rounded px-3 py-2 text-sm"
-                placeholder="1,70"
-              />
+              @if (!isEditingStage()) {
+                <label class="block text-xs text-slate-600">PK (km), opcional si no són coordenades</label>
+                <input
+                  [(ngModel)]="roadSearchStartKm"
+                  (ngModelChange)="onSearchStartChange()"
+                  type="text"
+                  class="w-full border rounded px-3 py-2 text-sm"
+                  placeholder="1,70"
+                />
+              }
               <button
                 type="button"
                 (click)="goSearchStart()"
@@ -80,7 +89,13 @@ import { tryParseCoordinates } from './utils/parse-coordinates';
                 Anar a inici
               </button>
             </div>
-            <div class="border border-slate-200 rounded-lg p-3 space-y-2">
+            <div
+              class="border rounded-lg p-3 space-y-2 transition-shadow"
+              [class.border-slate-200]="activeRoadSearchPanel() !== 'end'"
+              [class.ring-2]="activeRoadSearchPanel() === 'end'"
+              [class.ring-rose-600]="activeRoadSearchPanel() === 'end'"
+              [class.border-rose-500]="activeRoadSearchPanel() === 'end'"
+            >
               <div class="flex justify-between items-center gap-2">
                 <span class="text-sm font-semibold text-slate-800">Final</span>
                 <button
@@ -98,16 +113,18 @@ import { tryParseCoordinates } from './utils/parse-coordinates';
                 (ngModelChange)="onSearchEndChange()"
                 type="text"
                 class="w-full border rounded px-3 py-2 text-sm"
-                placeholder="C-16 o 42,12 2,45"
+                placeholder="C-16 o 41.387 1.367"
               />
-              <label class="block text-xs text-slate-600">PK (km), opcional</label>
-              <input
-                [(ngModel)]="roadSearchEndKm"
-                (ngModelChange)="onSearchEndChange()"
-                type="text"
-                class="w-full border rounded px-3 py-2 text-sm"
-                placeholder="12,5"
-              />
+              @if (!isEditingStage()) {
+                <label class="block text-xs text-slate-600">PK (km), opcional</label>
+                <input
+                  [(ngModel)]="roadSearchEndKm"
+                  (ngModelChange)="onSearchEndChange()"
+                  type="text"
+                  class="w-full border rounded px-3 py-2 text-sm"
+                  placeholder="12,5"
+                />
+              }
               <button
                 type="button"
                 (click)="goSearchEnd()"
@@ -128,18 +145,26 @@ import { tryParseCoordinates } from './utils/parse-coordinates';
               Netejar tota la cerca
             </button>
           </div>
-          <p class="text-xs text-gray-500">
-            El mateix camp accepta referència de carretera o dues coordenades (lat, lng). Amb coordenades el PK s’ignora.
-            El PK ve d’OSM i pot diferir del punt quilomètric oficial. Pins: verd inici, vermell final.
-          </p>
+          @if (isEditingStage()) {
+            <p class="text-xs text-gray-500">
+              Coordenades: dos números amb punt o coma decimal, separats per coma, punt i coma o espais (p. ex. 41.38716133395925, 1.367637304904624 o el mateix amb espai).
+              «Anar a…» col·loca els waypoints (rosa = inici, negre = final); si cerques el final sense tenir inici, es mostra un pin vermell de previsualització fins que defineixis l’inici.
+            </p>
+          } @else {
+            <p class="text-xs text-gray-500">
+              El mateix camp accepta referència de carretera o dues coordenades (lat, lng). Amb coordenades el PK s’ignora.
+              El PK es calibra amb fites (milestones) mapades a OSM quan n’hi ha prou; si no, es mesura des de l’extrem del traç OSM i pot desviar-se molt de l’oficial. «Anar a…» col·loca els waypoints (rosa = inici, negre = final);
+              si cerques el final sense tenir inici, es mostra un pin vermell de previsualització fins que defineixis l’inici.
+            </p>
+          }
         </div>
         
-        <div class="flex-1 min-h-0">
-          <div class="mb-3">
+        <div class="shrink-0 h-[min(52vh,640px)] min-h-[260px] flex flex-col">
+          <div class="mb-3 shrink-0">
             <app-map-toolbar />
           </div>
           
-          <div class="relative h-full">
+          <div class="relative flex-1 min-h-0">
             <app-map
               (curvePointClicked)="onCurvePointClicked($event)"
               (mapReady)="onMapReady()"
@@ -178,8 +203,11 @@ import { tryParseCoordinates } from './utils/parse-coordinates';
         </div>
         
         @if (paceNotes().length > 0) {
-          <div class="h-64 bg-white rounded-lg shadow-lg p-4 overflow-auto">
-            <h3 class="text-lg font-bold mb-3">Notes de Pilot Generades</h3>
+          <div
+            class="shrink-0 bg-white rounded-lg shadow-lg p-4 flex flex-col h-[min(52vh,34rem)] min-h-80 overflow-hidden"
+          >
+            <h3 class="text-lg font-bold mb-3 shrink-0">Notes de Pilot Generades</h3>
+            <div class="overflow-y-auto min-h-0 flex-1 -mx-1 px-1">
             <table class="w-full text-sm">
               <thead class="border-b">
                 <tr>
@@ -188,11 +216,16 @@ import { tryParseCoordinates } from './utils/parse-coordinates';
                   <th class="text-left p-2">Angle</th>
                   <th class="text-left p-2">Distància</th>
                   <th class="text-left p-2">Etiqueta</th>
+                  <th class="text-right p-2 w-px whitespace-nowrap"></th>
                 </tr>
               </thead>
               <tbody>
-                @for (note of paceNotes(); track note.position) {
-                  <tr class="border-b hover:bg-gray-50">
+                @for (note of paceNotes(); track note.position; let rowIndex = $index) {
+                  <tr
+                    class="border-b hover:bg-gray-50 cursor-default"
+                    (mouseenter)="mapService.setPaceNoteTableHover(rowIndex)"
+                    (mouseleave)="mapService.setPaceNoteTableHover(null)"
+                  >
                     <td class="p-2">{{ note.position }}</td>
                     <td class="p-2">{{ note.type === 'curve' ? 'Corba' : 'Recta' }}</td>
                     <td class="p-2">
@@ -210,15 +243,26 @@ import { tryParseCoordinates } from './utils/parse-coordinates';
                       }
                     </td>
                     <td class="p-2 font-bold">{{ note.noteLabel }}</td>
+                    <td class="p-2 text-right align-middle">
+                      <button
+                        type="button"
+                        (click)="deletePaceNoteAt(rowIndex); $event.stopPropagation()"
+                        class="text-xs px-2 py-1 rounded border border-rose-200 text-rose-700 hover:bg-rose-50"
+                        title="Eliminar nota"
+                      >
+                        Eliminar
+                      </button>
+                    </td>
                   </tr>
                 }
               </tbody>
             </table>
+            </div>
           </div>
         }
       </div>
       
-      <div class="w-64 space-y-4">
+      <div class="w-64 shrink-0 space-y-4">
         <app-route-toolbar 
           (analyze)="onAnalyze()"
           (save)="onSave()"
@@ -245,14 +289,19 @@ export class StageEditorComponent implements OnInit {
   private notification = inject(NotificationService);
   private loading = inject(LoadingService);
   private geocodingApi = inject(GeocodingApiService);
+  private destroyRef = inject(DestroyRef);
 
   paceNotes = signal<PaceNote[]>([]);
   totalDistance = signal<number | null>(null);
+  /** Edició d’un tram existent (stageId a la URL): sense camps PK a la cerca. */
+  isEditingStage = signal(false);
   stageName = '';
   roadSearchStartRef = '';
   roadSearchStartKm = '';
   roadSearchEndRef = '';
   roadSearchEndKm = '';
+  /** Panell Inici/Final ressaltat després d’«Anar a …». */
+  activeRoadSearchPanel = signal<'start' | 'end' | null>(null);
   currentRouteGeometry: any = null;
 
   private mapInitialized = false;
@@ -261,8 +310,17 @@ export class StageEditorComponent implements OnInit {
   waypointCount = computed(() => this.mapService.waypoints().length);
 
   async ngOnInit(): Promise<void> {
+    this.mapService.noteMarkerDeleteRequested$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(index => this.removePaceNoteAtArrayIndex(index));
+
     const stageId = this.route.snapshot.queryParamMap.get('stageId');
     const rallyId = this.route.snapshot.queryParamMap.get('rallyId');
+    this.isEditingStage.set(!!stageId);
+    if (this.isEditingStage()) {
+      this.roadSearchStartKm = '';
+      this.roadSearchEndKm = '';
+    }
     if (!stageId || !rallyId) return;
 
     try {
@@ -278,7 +336,15 @@ export class StageEditorComponent implements OnInit {
         }
 
         await this.paceNotesService.loadNotesByStage(stageId);
-        const notes = [...this.paceNotesService.notes()].sort((a, b) => a.position - b.position);
+        let notes = [...this.paceNotesService.notes()].sort((a, b) => a.position - b.position);
+        const rg = stage.routeGeometry;
+        const routeCoordsGeo = rg?.coordinates;
+        if (routeCoordsGeo && routeCoordsGeo.length >= 2) {
+          const routeLatLng = routeCoordsGeo.map(
+            (c: number[]) => [c[1], c[0]] as [number, number],
+          );
+          notes = this.routeAnalyzer.sortPaceNotesAlongRoute(notes, routeLatLng);
+        }
         this.paceNotes.set(notes);
 
         this.stageName = stage.name;
@@ -338,17 +404,24 @@ export class StageEditorComponent implements OnInit {
     this.roadSearchStartRef = '';
     this.roadSearchStartKm = '';
     this.mapService.clearRoadSearchStartPin();
+    if (this.activeRoadSearchPanel() === 'start') {
+      this.activeRoadSearchPanel.set(null);
+    }
   }
 
   clearSearchEnd(): void {
     this.roadSearchEndRef = '';
     this.roadSearchEndKm = '';
     this.mapService.clearRoadSearchEndPin();
+    if (this.activeRoadSearchPanel() === 'end') {
+      this.activeRoadSearchPanel.set(null);
+    }
   }
 
   clearRoadSearch(): void {
     this.clearSearchStart();
     this.clearSearchEnd();
+    this.activeRoadSearchPanel.set(null);
   }
 
   async goSearchStart(): Promise<void> {
@@ -359,11 +432,13 @@ export class StageEditorComponent implements OnInit {
     }
     await this.runSearchToPin(
       line,
-      this.roadSearchStartKm,
+      this.isEditingStage() ? '' : this.roadSearchStartKm,
       'start',
       (lat, lng) => {
-        this.mapService.setRoadSearchStartPin(lat, lng);
-        this.mapService.fitSearchPinsView();
+        this.activeRoadSearchPanel.set('start');
+        this.mapService.setWaypointFromSearchStart(lat, lng);
+        this.mapService.fitWaypointsView();
+        setTimeout(() => this.mapService.openWaypointPopup(0), 700);
       },
     );
   }
@@ -376,11 +451,23 @@ export class StageEditorComponent implements OnInit {
     }
     await this.runSearchToPin(
       line,
-      this.roadSearchEndKm,
+      this.isEditingStage() ? '' : this.roadSearchEndKm,
       'end',
       (lat, lng) => {
-        this.mapService.setRoadSearchEndPin(lat, lng);
-        this.mapService.fitSearchPinsView();
+        this.activeRoadSearchPanel.set('end');
+        const applied = this.mapService.setWaypointFromSearchEnd(lat, lng);
+        if (!applied) {
+          this.mapService.setRoadSearchEndPin(lat, lng);
+          this.mapService.fitSearchPinsView();
+          setTimeout(() => this.mapService.openRoadSearchPopup('end'), 700);
+          this.notification.warn(
+            'Inici necessari',
+            "Primer defineix l'inici amb «Anar a inici» o el mode Inici / final al mapa.",
+          );
+          return;
+        }
+        this.mapService.fitWaypointsView();
+        setTimeout(() => this.mapService.openWaypointPopup(1), 700);
       },
     );
   }
@@ -461,7 +548,7 @@ export class StageEditorComponent implements OnInit {
     }
 
     if (this.paceNotes().length > 0) {
-      this.mapService.addNoteMarkers(this.paceNotes());
+      this.mapService.addNoteMarkers(this.paceNotes(), { deletable: true });
     }
   }
 
@@ -473,6 +560,24 @@ export class StageEditorComponent implements OnInit {
       if (route) this.mapService.drawRoute(route);
     } catch (e) {
       console.error('Error recalculant ruta:', e);
+    }
+  }
+
+  deletePaceNoteAt(index: number): void {
+    this.removePaceNoteAtArrayIndex(index);
+  }
+
+  private removePaceNoteAtArrayIndex(index: number): void {
+    this.mapService.setPaceNoteTableHover(null);
+    const notes = [...this.paceNotes()];
+    if (index < 0 || index >= notes.length) return;
+    notes.splice(index, 1);
+    const renumbered = notes.map((n, i) => ({ ...n, position: i + 1 }));
+    this.paceNotes.set(renumbered);
+    if (renumbered.length === 0) {
+      this.mapService.clearNoteMarkers();
+    } else {
+      this.mapService.addNoteMarkers(renumbered, { deletable: true });
     }
   }
 
@@ -493,12 +598,13 @@ export class StageEditorComponent implements OnInit {
 
     if (note) {
       const currentNotes = this.paceNotes();
-      note.position = currentNotes.length + 1;
-      
-      this.paceNotes.set([...currentNotes, note]);
-      
-      this.mapService.addNoteMarkers(this.paceNotes());
-      
+      const merged = this.routeAnalyzer.sortPaceNotesAlongRoute(
+        [...currentNotes, { ...note, position: 0 }],
+        routeCoords,
+      );
+      this.paceNotes.set(merged);
+      this.mapService.addNoteMarkers(merged, { deletable: true });
+
       const typeLabel = note.type === 'curve' ? 'Corba' : 'Recta';
       console.log(`[NotePoint] Nova nota ${typeLabel} afegida:`, note.noteLabel);
     } else {
@@ -533,7 +639,7 @@ export class StageEditorComponent implements OnInit {
       this.totalDistance.set(routeData.distance / 1000);
       
       // Afegir pins de les notes al mapa
-      this.mapService.addNoteMarkers(notes);
+      this.mapService.addNoteMarkers(notes, { deletable: true });
       this.notification.success('Ruta analitzada', `${notes.length} notes generades`);
     } catch (error) {
       console.error('Error analyzing route:', error);

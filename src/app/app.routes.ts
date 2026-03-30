@@ -17,6 +17,14 @@ export const routes: Routes = [
       import('./features/auth/components/register/register.component').then(m => m.RegisterComponent),
   },
   {
+    path: 'stages/:id/print-maps',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/stages/components/stage-print-maps/stage-print-maps.component').then(
+        m => m.StagePrintMapsComponent,
+      ),
+  },
+  {
     path: 'stages/:id/print',
     canActivate: [authGuard],
     loadComponent: () =>

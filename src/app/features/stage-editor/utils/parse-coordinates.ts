@@ -1,14 +1,15 @@
 /**
- * Detecta dos números tipus lat/lng al text (separadors: coma, punt i coma, espais).
+ * Detecta dos números tipus lat/lng al text sencer.
+ * Separadors entre els dos números: coma, punt i coma, o espais (un o més).
+ * El punt decimal dins de cada nombre és `.` o `,`; el punt NO es fa servir com a separador entre lat i lng (evita ambigüitats).
  * Heurística Iberia: si un valor és ~35–45 i l’altre ~–10–5, s’ordena com a lat/lng.
  */
 export function tryParseCoordinates(input: string): { lat: number; lng: number } | null {
   const t = input.trim();
   if (!t) return null;
 
-  const m = t.match(
-    /^(-?\d{1,3}(?:[.,]\d+)?)\s*[,;\s]\s*(-?\d{1,3}(?:[.,]\d+)?)/,
-  );
+  const num = String.raw`-?\d+(?:[.,]\d+)?`;
+  const m = t.match(new RegExp(`^(${num})\\s*(?:[,;]|\\s+)\\s*(${num})\\s*$`));
   if (!m) return null;
 
   const a = parseFloat(m[1].replace(',', '.'));

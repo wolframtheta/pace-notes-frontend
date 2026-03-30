@@ -11,6 +11,8 @@ interface RouteSegment {
   angle?: number;
   direction?: PaceNoteDirection;
   distance?: number;
+  /** Metres des de l’inici del traç (resamplejat) fins al vèrtex `startIndex`; per ordenar inici → final. */
+  routeProgressM?: number;
 }
 
 @Injectable({
@@ -55,7 +57,79 @@ export class RouteAnalyzerService {
       type: s.type, angle: s.angle?.toFixed(1), dir: s.direction, dist: s.distance?.toFixed(0)
     })));
 
-    return this.generatePaceNotes(processed);
+    const cum = this.cumulativeDistancesM(resampled);
+    const ordered = this.orderSegmentsAlongRoute(processed, cum);
+    return this.generatePaceNotes(ordered);
+  }
+
+  /**
+   * Ordena les notes pel punt del traç on cauen (projecció al polyline), inici → final.
+   * Útil després d’afegir notes manuals o si les posicions venen desordenades de l’API.
+   */
+  sortPaceNotesAlongRoute(
+    notes: PaceNote[],
+    routeCoordinates: Array<[number, number]>,
+  ): PaceNote[] {
+    if (notes.length <= 1 || routeCoordinates.length < 2) {
+      return notes.map((n, i) => ({ ...n, position: i + 1 }));
+    }
+
+    const line = turf.lineString(routeCoordinates.map(([lat, lng]) => [lng, lat]));
+
+    const scored = notes.map(note => {
+      const snapped = turf.nearestPointOnLine(line, turf.point([note.lng, note.lat]), {
+        units: 'meters',
+      });
+      const progress =
+        snapped.properties.lineDistance >= 0
+          ? snapped.properties.lineDistance
+          : snapped.properties.location;
+      return { note, progress };
+    });
+
+    scored.sort((a, b) => {
+      const d = a.progress - b.progress;
+      if (Math.abs(d) < 1e-3) {
+        return a.note.position - b.note.position;
+      }
+      return d;
+    });
+
+    return scored.map((x, i) => ({ ...x.note, position: i + 1 }));
+  }
+
+  private cumulativeDistancesM(coordinates: Array<[number, number]>): number[] {
+    const d: number[] = [0];
+    for (let i = 1; i < coordinates.length; i++) {
+      const from = turf.point([coordinates[i - 1][1], coordinates[i - 1][0]]);
+      const to = turf.point([coordinates[i][1], coordinates[i][0]]);
+      d.push(d[i - 1] + turf.distance(from, to, { units: 'meters' }));
+    }
+    return d;
+  }
+
+  private orderSegmentsAlongRoute(
+    segments: RouteSegment[],
+    cumulativeMeters: number[],
+  ): RouteSegment[] {
+    if (segments.length <= 1) return segments;
+
+    const last = cumulativeMeters.length - 1;
+    const withP = segments.map(seg => {
+      const idx = Math.max(0, Math.min(seg.startIndex, last));
+      const routeProgressM = cumulativeMeters[idx] ?? 0;
+      return { seg: { ...seg, routeProgressM }, progress: routeProgressM };
+    });
+
+    withP.sort((a, b) => {
+      const d = a.progress - b.progress;
+      if (Math.abs(d) < 1e-3) {
+        return a.seg.startIndex - b.seg.startIndex;
+      }
+      return d;
+    });
+
+    return withP.map(x => x.seg);
   }
 
   /**

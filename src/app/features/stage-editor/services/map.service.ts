@@ -16,6 +16,10 @@ export class MapService {
   private routeLayer?: L.Polyline;
   private markers: L.Marker[] = [];
   private noteMarkers: L.Marker[] = [];
+  /** URL d’icona per cada marcador de nota (mateix ordre que `noteMarkers`). */
+  private paceNoteMarkerIconUrls: string[] = [];
+  /** Fila de la taula amb hover (o null): marcador més gran al mapa. */
+  private highlightedPaceNoteIndex: number | null = null;
   /** Pins de cerca inici / final (no són waypoints ni notes). */
   private roadSearchStartMarker?: L.Marker;
   private roadSearchEndMarker?: L.Marker;
@@ -23,9 +27,13 @@ export class MapService {
 
   private readonly notification = inject(NotificationService);
   private readonly waypointChange$ = new Subject<void>();
+  private readonly noteMarkerDeleteRequest$ = new Subject<number>();
 
   /** Emès quan canvia el nombre o posició dels waypoints (per recalcular ruta OSRM). */
   readonly waypointsChanged$ = this.waypointChange$.asObservable();
+
+  /** Índex de la nota dins l’array passat a `addNoteMarkers` (0-based), quan es clica Eliminar al popup. */
+  readonly noteMarkerDeleteRequested$ = this.noteMarkerDeleteRequest$.asObservable();
 
   waypoints = signal<Array<{ lat: number; lng: number }>>([]);
   currentMode = signal<MapMode>('pan');
@@ -357,14 +365,78 @@ export class MapService {
     this.map.fitBounds(bounds, { padding: [56, 56], maxZoom: 16, animate: true });
   }
 
+  /** Obre el popup del pin de cerca inici o final (p.ex. després de flyTo). */
+  openRoadSearchPopup(which: 'start' | 'end'): void {
+    const m = which === 'start' ? this.roadSearchStartMarker : this.roadSearchEndMarker;
+    m?.openPopup();
+  }
+
+  /** Obre el popup del waypoint per índex (0 = inici, 1 = final amb 2 punts). */
+  openWaypointPopup(index: number): void {
+    this.markers[index]?.openPopup();
+  }
+
+  /**
+   * Cerca «Anar a inici» → primer waypoint (Inici). Treu el pin verd de cerca per no duplicar.
+   */
+  setWaypointFromSearchStart(lat: number, lng: number): void {
+    if (!this.map) return;
+    const wps = this.waypoints();
+    const next =
+      wps.length >= 2 ? [{ lat, lng }, wps[1]] : [{ lat, lng }];
+    this.waypoints.set(next);
+    this.clearRoadSearchStartPin();
+    this.rebuildWaypointMarkers();
+    if (this.waypoints().length === MAX_WAYPOINTS) {
+      this.setMode('pan');
+    }
+    this.waypointChange$.next();
+  }
+
+  /**
+   * Cerca «Anar a final» → segon waypoint (Final). Cal tenir ja l’inici (≥1 waypoint).
+   * @returns false si no hi ha cap waypoint (primer fes «Anar a inici» o un clic al mapa).
+   */
+  setWaypointFromSearchEnd(lat: number, lng: number): boolean {
+    if (!this.map) return false;
+    const wps = this.waypoints();
+    if (wps.length === 0) {
+      return false;
+    }
+    const next =
+      wps.length >= 2 ? [wps[0], { lat, lng }] : [wps[0], { lat, lng }];
+    this.waypoints.set(next);
+    this.clearRoadSearchEndPin();
+    this.rebuildWaypointMarkers();
+    this.setMode('pan');
+    this.waypointChange$.next();
+    return true;
+  }
+
+  /** Centra el mapa en els waypoints actuals (1 punt = flyTo, 2 = fitBounds). */
+  fitWaypointsView(): void {
+    if (!this.map) return;
+    const wps = this.waypoints();
+    if (wps.length === 0) return;
+    if (wps.length === 1) {
+      this.map.flyTo([wps[0].lat, wps[0].lng], 15, { duration: 0.6 });
+      return;
+    }
+    const bounds = L.latLngBounds(wps.map(w => [w.lat, w.lng] as L.LatLngTuple));
+    this.map.fitBounds(bounds, { padding: [56, 56], maxZoom: 16, animate: true });
+  }
+
   flyTo(lat: number, lng: number, zoom: number = 15): void {
     this.map?.flyTo([lat, lng], zoom, { duration: 0.6 });
   }
 
-  addNoteMarkers(notes: PaceNote[]): void {
+  addNoteMarkers(notes: PaceNote[], options?: { deletable?: boolean }): void {
     if (!this.map) return;
 
     this.clearNoteMarkers();
+
+    const deletable = options?.deletable === true;
+    const trashSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`;
 
     notes.forEach((note, index) => {
       const iconUrl = note.type === 'curve'
@@ -373,15 +445,10 @@ export class MapService {
             : 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png')
         : 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png';
 
+      this.paceNoteMarkerIconUrls.push(iconUrl);
+
       const marker = L.marker([note.lat, note.lng], {
-        icon: L.icon({
-          iconUrl,
-          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-          iconSize: [25, 41],
-          iconAnchor: [12, 41],
-          popupAnchor: [1, -34],
-          shadowSize: [41, 41]
-        })
+        icon: this.paceNoteMarkerIcon(iconUrl, false),
       });
 
       let popupContent = `
@@ -484,6 +551,16 @@ export class MapService {
             </div>`;
       }
 
+      if (deletable) {
+        popupContent += `
+            <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #e5e7eb; text-align: center;">
+              <button type="button" class="pace-note-delete-btn" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 14px; background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: system-ui, -apple-system, sans-serif;">
+                ${trashSvg}
+                <span>Eliminar nota</span>
+              </button>
+            </div>`;
+      }
+
       popupContent += `
           </div>
         </div>`;
@@ -493,10 +570,27 @@ export class MapService {
         className: 'custom-popup'
       });
 
+      if (deletable) {
+        marker.on('popupopen', () => {
+          const el = marker.getPopup()?.getElement();
+          const btn = el?.querySelector<HTMLElement>('.pace-note-delete-btn');
+          if (!btn || btn.dataset.paceDeleteBound === '1') return;
+          btn.dataset.paceDeleteBound = '1';
+          L.DomEvent.on(btn, 'click', (e: Event) => {
+            L.DomEvent.stopPropagation(e);
+            L.DomEvent.preventDefault(e);
+            this.noteMarkerDeleteRequest$.next(index);
+            marker.closePopup();
+          });
+        });
+      }
+
       marker.addTo(this.map!);
 
       this.noteMarkers.push(marker);
     });
+
+    this.applyPaceNoteMarkerHighlight();
   }
 
   clearNoteMarkers(): void {
@@ -506,6 +600,45 @@ export class MapService {
       }
     });
     this.noteMarkers = [];
+    this.paceNoteMarkerIconUrls = [];
+    this.highlightedPaceNoteIndex = null;
+  }
+
+  /** En passar el ratolí per una fila de la taula de notes, engrandeix el pin al mapa. */
+  setPaceNoteTableHover(index: number | null): void {
+    if (this.noteMarkers.length === 0) {
+      this.highlightedPaceNoteIndex = null;
+      return;
+    }
+    this.highlightedPaceNoteIndex =
+      index != null && index >= 0 && index < this.noteMarkers.length ? index : null;
+    this.applyPaceNoteMarkerHighlight();
+  }
+
+  private paceNoteMarkerIcon(iconUrl: string, enlarged: boolean): L.Icon {
+    const s = enlarged ? 1.5 : 1;
+    const iw = Math.round(25 * s);
+    const ih = Math.round(41 * s);
+    const ax = Math.round(12 * s);
+    const ay = Math.round(41 * s);
+    return L.icon({
+      iconUrl,
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+      iconSize: [iw, ih],
+      iconAnchor: [ax, ay],
+      popupAnchor: [Math.round(1 * s), Math.round(-34 * s)],
+      shadowSize: [Math.round(41 * s), Math.round(41 * s)],
+    });
+  }
+
+  private applyPaceNoteMarkerHighlight(): void {
+    const hi = this.highlightedPaceNoteIndex;
+    this.noteMarkers.forEach((marker, i) => {
+      const url = this.paceNoteMarkerIconUrls[i];
+      if (!url) return;
+      marker.setIcon(this.paceNoteMarkerIcon(url, hi === i));
+      marker.setZIndexOffset(hi === i ? 1200 : 0);
+    });
   }
 
   getMap(): L.Map | undefined {

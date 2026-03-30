@@ -8,7 +8,7 @@ import { OsrmService } from '../../services/osrm.service';
   standalone: true,
   imports: [],
   template: `
-    <div id="map" class="w-full h-full rounded-lg shadow-lg" style="min-height: 500px;"></div>
+    <div id="map" class="w-full h-full min-h-[220px] rounded-lg shadow-lg"></div>
   `,
   styles: [`
     :host {

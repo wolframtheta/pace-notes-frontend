@@ -7,8 +7,8 @@ import { PaceNotesService } from '../../../pace-notes/services/pace-notes.servic
 import { NoteGroupService } from '../../../pace-notes/services/note-group.service';
 import { RallyService } from '../../../rallies/services/rally.service';
 import { PaceNote } from '../../../../core/models/pace-note.model';
-import { NoteGroup } from '../../../../core/models/note-group.model';
 import { Rally } from '../../../../core/models/rally.model';
+
 interface NoteSegment {
   notes: PaceNote[];
   isSuperset: boolean;
@@ -534,6 +534,10 @@ export class StagePrintComponent implements OnInit, OnDestroy {
     }
   }
 
+  ngOnDestroy(): void {
+    document.title = this.originalTitle;
+  }
+
   toggleBreak(noteId: string): void {
     const note = this.paceNotesService.notes().find(n => n.id === noteId);
     if (!note) return;
@@ -658,7 +662,6 @@ export class StagePrintComponent implements OnInit, OnDestroy {
 
   print(): void { window.print(); }
   close(): void { window.close(); }
-  ngOnDestroy(): void { document.title = this.originalTitle; }
 
   categorizeStraight(distance: number | undefined): string {
     if (!distance) return '25';

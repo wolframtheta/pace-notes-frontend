@@ -1,6 +1,6 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { RallyService } from '../../services/rally.service';
 import { StageService } from '../../../stages/services/stage.service';
 import { Rally } from '../../../../core/models/rally.model';
@@ -12,7 +12,7 @@ import { NotificationService } from '../../../../core/services/notification.serv
 @Component({
   selector: 'app-rally-detail',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule],
   template: `
     @if (rally()) {
       <div class="space-y-6">
@@ -49,7 +49,10 @@ import { NotificationService } from '../../../../core/services/notification.serv
             <h3 class="text-lg font-semibold mb-3">Trams ({{ stages().length }})</h3>
             <div class="grid gap-4">
               @for (stage of stages(); track stage.id) {
-                <div class="bg-white p-6 rounded-lg shadow-lg">
+                <div
+                  class="bg-white p-6 rounded-lg shadow-lg hover:shadow-xl transition-shadow cursor-pointer border-l-4 border-barrufet-500"
+                  (click)="viewStage(stage.id)"
+                >
                   <div class="flex justify-between items-start">
                     <div class="flex-1">
                       <h4 class="text-xl font-bold mb-2">{{ stage.name }}</h4>
@@ -72,14 +75,16 @@ import { NotificationService } from '../../../../core/services/notification.serv
                         </div>
                       </div>
                     </div>
-                    <div class="flex gap-2 ml-4">
-                      <a
-                        [routerLink]="['/stages', stage.id]"
+                    <div class="flex gap-2 ml-4" (click)="$event.stopPropagation()">
+                      <button
+                        type="button"
+                        (click)="viewStage(stage.id)"
                         class="bg-accent-500 hover:bg-accent-600 text-white px-3 py-1 rounded text-sm transition"
                       >
                         Veure
-                      </a>
+                      </button>
                       <button
+                        type="button"
                         (click)="deleteStage(stage.id, stage.name)"
                         class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm transition"
                       >
@@ -133,6 +138,10 @@ export class RallyDetailComponent implements OnInit {
   createTram(): void {
     const id = this.route.snapshot.paramMap.get('id');
     this.router.navigate(['/stage-editor'], { queryParams: { rallyId: id } });
+  }
+
+  viewStage(stageId: string): void {
+    this.router.navigate(['/stages', stageId]);
   }
 
   deleteStage(stageId: string, name: string): void {
